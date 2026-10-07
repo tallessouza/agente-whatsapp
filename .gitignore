@@ -1,0 +1,7 @@
+__pycache__/
+*.db
+*.db-*
+.env
+.env.*
+!.env.exemplo
+node_modules/

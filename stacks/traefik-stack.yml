@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  traefik:
+    image: traefik:v3@sha256:24841fe2de7304c149343d877d2923b4c8800a38ba015dea9174c23b20e344a0
+    command:
+      - --entrypoints.web.address=13.140.42.181:80
+      - --entrypoints.websecure.address=13.140.42.181:443
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --providers.file.filename=/etc/traefik/dynamic.yml
+      - --providers.swarm.endpoint=unix:///var/run/docker.sock
+      - --providers.swarm.exposedbydefault=false
+      - --providers.swarm.usebindportip=true
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+      - --log.level=INFO
+      - --accesslog=true
+    networks:
+      - host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - certificates:/letsencrypt
+    configs:
+      - source: routes_v4
+        target: /etc/traefik/dynamic.yml
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.hostname == vmi3581839
+      update_config:
+        order: stop-first
+      restart_policy:
+        condition: any
+
+networks:
+  host:
+    external: true
+    name: host
+
+volumes:
+  certificates:
+    name: traefik_certificates
+
+configs:
+  routes_v4:
+    file: ./traefik-dynamic.yml

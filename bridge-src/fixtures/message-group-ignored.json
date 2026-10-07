@@ -1,0 +1,15 @@
+{
+  "event": "Message",
+  "instance": "whatsapp",
+  "data": {
+    "key": {
+      "remoteJid": "120363422580564184@g.us",
+      "fromMe": false,
+      "id": "fixture-group-001"
+    },
+    "pushName": "Grupo Fixture",
+    "message": {"conversation": "Mensagem de grupo ignorada"},
+    "messageType": "conversation",
+    "messageTimestamp": 1790304003
+  }
+}

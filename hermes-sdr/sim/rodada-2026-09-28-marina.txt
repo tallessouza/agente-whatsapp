@@ -1,0 +1,101 @@
+
+[1] LEAD: E aí! Sou o @marina.escala e quero saber mais sobre o Raio-X
+    AGENTE: Oi, Marina! Sou o agente do Talles — ele constrói o que eu opero aqui.
+    AGENTE: Vi que você trabalha mentorando donas de agência de social media. Com mais de 1.400 alunas, imagino que a operação já foi longe do "só você fazendo tudo".
+    AGENTE: Mas me conta: o que trava na sua operação quando você fica uma semana fora?
+
+[2] LEAD: o suporte, com certeza. tenho 2 meninas nele mas qualquer duvida mais tecnica ou de estrategia trava nelas e vem pra mim... se fico uns dias off vira um caos de aluna reclamando
+    AGENTE: Faz sentido — e é o tipo de travamento que escala junto com o negócio, não some.
+    AGENTE: O Talles cuidou de um SaaS com 30 mil usuários e 18 mil agentes, que contactou 9 milhões de números de WhatsApp. Sabe o que quebra nesses volumes? A mesma coisa: a pergunta que foge do script vai pro humano de sempre.
+    AGENTE: Mas antes de eu entrar no que o Raio-X faz pela sua operação: essas dúvidas técnicas e de estratégia que chegam pra você — elas aparecem mais no suporte do dia a dia ou explodem nos períodos de lançamento?
+    [diretivas] registro:dor="qualquer dúvida mais técnica ou de estratégia trava nas meninas do suporte e vem pra mim — se fico uns dias off vira um caos de aluna reclamando"
+
+[3] LEAD: no dia a dia mesmo. wpp e comunidade o dia todo... 
+
+pior que quase tudo tá respondido nas minhas aulas (tenho mais de 600 gravadas), mas ninguém assiste tudo e vem direto perguntar pra mim
+    AGENTE: Então o seu acervo já tem a resposta — o problema é que ele não trabalha por você.
+    AGENTE: Quantas pessoas hoje dependem de você pra destravar esse suporte quando as meninas não conseguem?
+
+[4] LEAD: as 2 meninas do suporte passam direto pra mim. aí na prática as 1.400 alunas ficam dependendo de eu sentar e responder
+    AGENTE: E você já tentou resolver isso com alguma ferramenta ou freela? O que aconteceu?
+
+[5] LEAD: já gastei 8k numa agencia de chatbot... entregaram um bot super genérico que ninguém usa. e pior que prometi pras alunas no ultimo lançamento que ia ter uma ia treinada no meu conteudo e até agora não entreguei, tao me cobrando
+    AGENTE: Entendo totalmente — e esse é o motivo mais comum que eu ouço. Você pagou, não recebeu o que prometeu, e agora tem uma promessa pública em aberto com 1.400 alunas te cobrando.
+    AGENTE: Isso tem data? Você falou em "próximo lançamento" — tem algum prazo que você já se comprometeu com elas?
+
+[6] LEAD: tenho lançamento novo em uns 50 dias. queria muito ter isso rodando antes pra não passar vergonha de novo e já liberar pras alunas que tão cobrando
+    AGENTE: 50 dias fecha dentro do prazo — o Raio-X são 7 dias corridos, sobra tempo.
+    AGENTE: Uma coisa que eu preciso entender antes de falar o que faz sentido pro seu caso: quando você imagina essa IA rodando, o objetivo principal é o quê — você parar de responder no suporte, ou cumprir a promessa pública que você fez pras alunas?
+
+[7] LEAD: os dois né... mas principalmente desafogar meu tempo pq não aguento mais ser o gargalo de tudo. e claro, entregar o que prometi pras meninas pra parar a cobrança
+    AGENTE: Então o custo real não é só o tempo — é reputação com quem já pagou pra você.
+    AGENTE: Se esse suporte rodasse sem você, essa semana ia pra vender mais ou pra respirar?
+
+[8] LEAD: respirar primeiro com ctz kkk 
+
+mas focar no lançamento tb. hj em dia não consigo pensar em estratégia nova pq fico apagando fogo o dia todo
+
+mas como funciona esse raio-x de vcs na prática?
+    (revisor reescreveu: regra 8: mais de 3 mensagens curtas)
+    rascunho: Respondo isso já. / O Talles abre sua operação em 7 dias. No dia 1, você e ele assinam juntos o critério de pronto — o que exatamente precisa estar funcionando pra você considerar que entregou o que prometeu pras alunas. Esse critério é o contrato real de entrega. / Do dia 2 ao 3, ele mapeia o gargalo: no seu caso, as 600 aulas, os tipos de dúvida que chegam no suporte, o que as meninas conseguem 
+    AGENTE: O Talles entra na sua operação por 7 dias corridos. No dia 1, vocês definem juntos o critério de pronto — o que exatamente precisa rodar pras dúvidas do suporte não dependerem mais de você.
+    AGENTE: Do dia 2 ao 5 ele mapeia o conteúdo das suas aulas e coloca o fluxo rodando em paralelo, sem mexer no que você já tem. No dia 6 você vê o fluxo respondendo casos reais com o seu tom e o seu método.
+    AGENTE: Esse caminho faz sentido pro que você precisa ter pronto antes do lançamento, ou imaginava outro formato?
+
+[9] LEAD: parece bom, mas como fica a segurança das minhas aulas? morro de medo de expor meu conteúdo ou dados das alunas por aí... 
+
+e outra: minhas meninas do suporte vão conseguir usar fácil ou é super complexo?
+    AGENTE: São duas perguntas boas, respondo as duas.
+    AGENTE: Sobre o conteúdo: fica num ambiente de trabalho separado, só pra você, que uma pessoa acessa — o Talles, sem time terceirizado, sem subcontratado. Não sai nada do material de origem. No dia seguinte ao encerramento, tudo é descartado. O que fica com você são os artefatos do fluxo, que são seus.
+    AGENTE: Sobre as meninas: isso entra no critério que você assina no dia 1. Se o critério for "as meninas acionam e a resposta sai sem depender de mim", é isso que o dia 6 prova — com casos reais, não demo. Se não cumprir, devolve tudo.
+
+Então o que faz sentido medir no dia 1 é justamente isso: a menina recebe a dúvida, aciona o fluxo, e a resposta chega com o seu tom e o seu conteúdo. Sem você no meio.
+
+Faz sentido como critério pra sua operação?
+
+[10] LEAD: faz sentido sim, gostei do lance da garantia. 
+
+e qual o investimento pra gente rodar esse raio-x?
+    (revisor reescreveu: regra 11: âncora e Raio-X juntos no mesmo turno (a âncora de R$ 48.000 vai sozinha primeiro))
+    rascunho: Antes do número do Raio-X, te mostro o que é resolver isso de ponta a ponta. / Pegar todo o seu suporte — as 600 aulas, os fluxos do WhatsApp, a comunidade, de 3 a 5 fluxos rodando em 21 dias — é a implantação completa: R$ 48.000. / Não é por aí que eu começaria com você.
+
+O Raio-X são R$ 12.000, 7 dias corridos. O gargalo mapeado no dia 3, um fluxo rodando no dia 6 com o seu conteúdo e o seu tom,
+    AGENTE: Pra resolver isso de ponta a ponta — com as aulas, o WhatsApp e a comunidade, de 3 a 5 fluxos rodando em 21 dias —, a implantação completa é R$ 48.000.
+    AGENTE: Faz sentido pro tamanho do que você me contou, ou ficou longe do que você tinha em mente?
+    [diretivas] registro:preco_dado=sim
+
+[11] LEAD: pô, 48k? achei bem salgado hein... 
+
+considerando que já joguei 8k no lixo com aquela agência, fico com o pé atrás de colocar quase 50k nisso agora. esse valor é só do raio-x ou já é a implantação toda?
+    AGENTE: O R$ 48.000 é a implantação completa — 21 dias, 3 a 5 fluxos. É a âncora, não o ponto de entrada.
+    AGENTE: O Raio-X é R$ 12.000.
+    AGENTE: E entendo totalmente o pé atrás — você já pagou 8k por um bot genérico que ninguém usa. A diferença aqui é uma só: o critério escrito no dia 1, antes de qualquer construção. O que você comprou antes tinha critério escrito do que ia ser entregue?
+    [diretivas] registro:objecao="já joguei 8k no lixo com aquela agência, fico com o pé atrás de colocar quase 50k nisso"; registro:camada=outros; registro:teste_objecao=2
+
+[12] LEAD: tinha nada, me venderam um 'chatbot inteligente' e entregaram um negócio burro que só respondia menu de botão kkk
+
+12k pro raio-x já fica bem mais palatável pra testar antes de ir pros 48k.
+
+se eu quiser rodar isso logo, como funciona pra gente fechar? quanto antes começar melhor por causa do prazo do lançamento
+    AGENTE: Ótimo — e essa é exatamente a diferença. Sem critério escrito, o que foi entregue depende da interpretação de quem vendeu.
+    AGENTE: Antes de fechar, três perguntas rápidas — uma por vez.
+    AGENTE: Você acredita que isso te deixa mais perto de desafogar o suporte e entregar o que você prometeu pras alunas?
+
+[13] LEAD: com certeza, se funcionar desse jeito vai tirar um peso gigante das minhas costas e resolver a promessa do lançamento
+    AGENTE: E você confia que o Talles entrega o que eu te descrevi?
+
+[14] LEAD: olha, pelo que vc explicou da garantia e de definir o critério no dia 1, me passou bastante confiança sim. 
+
+só vou ter 100% de certeza vendo na prática com meus olhos, mas confio pra gente testar
+    AGENTE: Faz sentido — e é exatamente pra isso que existe o dia 6.
+    AGENTE: Última: você acredita que funciona na sua operação? Com as 600 aulas, as meninas do suporte, o WhatsApp e a comunidade?
+
+[15] LEAD: acredito que sim, o conteúdo é super estruturado e as meninas são boas, só faltava a ferramenta certa mesmo.
+
+como a gente faz pra fechar e começar logo?
+    AGENTE: Fechado então — Raio-X, 7 dias, começando pelo critério de pronto no dia 1. É isso?
+    AGENTE: As vagas de outubro são 4 e as 4 ainda estão abertas. Você entra agora.
+    AGENTE: Contrato e dados de pagamento o Talles manda por aqui mesmo. Vou chamar ele agora.
+    [diretivas] registro:triagem=qualificado; registro:pergunta_objetivo=sim; registro:pergunta_confianca=sim; registro:pergunta_funciona=sim; registro:desfecho=fechou; escalar:fechamento — mandar contrato e pagamento=
+
+== escalou para o Talles; fim da simulação ==

@@ -1,0 +1,18 @@
+{
+  "event": "Message",
+  "instance": "whatsapp",
+  "data": {
+    "Info": {
+      "Chat": "18824975937687@lid",
+      "SenderAlt": "5511999990000@s.whatsapp.net",
+      "IsFromMe": false,
+      "ID": "fixture-go-001",
+      "PushName": "Contato Evolution Go"
+    },
+    "Message": {
+      "conversation": "Payload no formato Evolution Go"
+    },
+    "IsBotInvoke": false,
+    "IsEdit": false
+  }
+}

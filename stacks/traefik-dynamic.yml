@@ -1,0 +1,63 @@
+http:
+  routers:
+    portainer:
+      rule: Host(`manager.talles.dev`)
+      entryPoints:
+        - websecure
+      service: portainer
+      tls:
+        certResolver: letsencrypt
+    openreply:
+      rule: Host(`openreply.talles.dev`)
+      entryPoints:
+        - websecure
+      service: openreply
+      tls:
+        certResolver: letsencrypt
+    chatwoot:
+      rule: Host(`chatwoot.talles.dev`)
+      entryPoints:
+        - websecure
+      service: chatwoot
+      tls:
+        certResolver: letsencrypt
+    evolution:
+      rule: Host(`evolution.talles.dev`)
+      entryPoints:
+        - websecure
+      service: evolution
+      tls:
+        certResolver: letsencrypt
+    omniroute:
+      rule: Host(`omni.talles.dev`)
+      entryPoints:
+        - websecure
+      service: omniroute
+      tls:
+        certResolver: letsencrypt
+  services:
+    portainer:
+      loadBalancer:
+        serversTransport: portainer-local
+        servers:
+          - url: https://127.0.0.1:9443
+    openreply:
+      loadBalancer:
+        servers:
+          - url: http://127.0.0.1:3000
+    chatwoot:
+      loadBalancer:
+        servers:
+          - url: http://127.0.0.1:3001
+    evolution:
+      loadBalancer:
+        servers:
+          - url: http://127.0.0.1:4000
+    omniroute:
+      loadBalancer:
+        servers:
+          - url: http://127.0.0.1:20128
+  serversTransports:
+    portainer-local:
+      # Portainer's self-signed certificate, reached only over loopback.
+      insecureSkipVerify: true

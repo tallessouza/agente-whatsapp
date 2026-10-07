@@ -1,0 +1,133 @@
+{
+  "fonte": "OFERTA-ATUAL.md de 06/10/2026 (as seções 9 e 9.1 vencem) para o instalador; SOUL v12 e a seção 9.1 para o raiox",
+  "atualizado_em": "2026-10-06T22:30:00-03:00",
+  "instalador": {
+    "nome": "Instalação do Time de IA",
+    "preco": "R$ 47",
+    "cobranca": "pagamento único",
+    "link_compra": "https://instalador.talles.dev/antes",
+    "o_que_o_link_faz": "a página confere os pré-requisitos e só libera o checkout com os 2 checks",
+    "o_que_o_time_faz": "chega pronto no Telegram do dono; conversa com ele, escreve, organiza e lembra por ele (não fala com os clientes dele); depois do \"Pronto.\" faz 15 perguntas e, no dia seguinte, manda a primeira Pauta do dia",
+    "o_que_nao_faz": "não atende os clientes dele no WhatsApp: isso é o Atendimento no WhatsApp (R$ 3.000), produto separado, que não vem nos R$ 47",
+    "pre_requisitos": {
+      "vps": "VPS com Ubuntu e 8 GB de RAM, referência Hostinger KVM2, cerca de R$ 119/mês, paga direto à empresa da VPS, no nome dele. Obrigatória para todos.",
+      "ia": "assinatura do Codex (plano pago do ChatGPT, Plus ou maior; conta grátis não funciona; referência R$ 100/mês) OU a Conta do Gemini comprada como bump na compra da instalação, que substitui o Codex só nesse caso"
+    },
+    "custo_mensal": {
+      "com_codex": "por fora, a VPS (cerca de R$ 119/mês) e o Codex (cerca de R$ 100/mês), pagos direto a eles",
+      "com_conta_do_gemini": "por mês, só a VPS (cerca de R$ 119/mês); a Conta do Gemini é R$ 100 uma vez, na compra; não citar o Codex"
+    },
+    "como_contratar": "caminho curto, sem vídeo: VPS com Ubuntu e 8 GB de RAM (por exemplo, a KVM2 da Hostinger); plano pago do ChatGPT, Plus ou maior, ou a Conta do Gemini junto na compra; se a pessoa travar, o agente passa ao Talles",
+    "prazo": "até 48 h depois do formulário completo, por ordem de chegada; pode sair antes, sem prometer",
+    "capacidade_por_dia": 15,
+    "capacidade_regra": "15 instalações por dia; a 16ª fica para o dia seguinte",
+    "garantia": "Pronto em 48 h: se o time não avisar \"Pronto.\" em até 48 h depois do formulário completo e correto, a instalação continua até ficar pronta; se não ficar, devolve o valor da instalação. Cobre só a instalação. Valem ainda os 7 dias de arrependimento do CDC. Pede-se pelo botão em /app/garantia, com reembolso em até 48 h.",
+    "depois_da_compra": [
+      "entra na área do cliente com o mesmo e-mail da compra e um código de 6 números",
+      "preenche o formulário de 5 campos (IP, usuário, senha, token do bot, ID do Telegram), cifrado no envio, mais o check do Codex e até 3 objetivos",
+      "autoriza o Codex por link e código na conta dele (quem levou a Conta do Gemini autoriza pelo OAuth do Gemini)",
+      "o time avisa \"Pronto.\" no Telegram dele em até 48 h depois do formulário completo",
+      "o time faz 15 perguntas e, no dia seguinte, manda a primeira Pauta do dia",
+      "a área avisa para trocar a senha do servidor"
+    ],
+    "bumps": [
+      {
+        "nome": "Conta do Gemini",
+        "preco": "R$ 100",
+        "cobranca": "única",
+        "onde": "bump do checkout",
+        "nota": "substitui o Codex; oferecida enquanto disponível; o agente não promete por quanto tempo a conta dura",
+        "link_avulso": "existe para quem já comprou a instalação sem a Conta do Gemini; o agente não tem esse link: passa ao Talles"
+      },
+      {
+        "nome": "Time de agentes",
+        "preco": null,
+        "disponivel": false,
+        "nota": "ainda não existe; não oferecer nem citar preço"
+      }
+    ],
+    "planos": [
+      {
+        "nome": "Gestão do time",
+        "precos": [
+          "quinzenal R$ 150/mês",
+          "semanal R$ 450/mês",
+          "diário R$ 1.300/mês"
+        ],
+        "onde": "página depois do checkout",
+        "e": "sugestões do que melhorar e automatizar",
+        "nao_e": "não mexe no que foi instalado; quem executa é o cliente",
+        "link": "https://instalador.talles.dev/oferta/gerenciamento"
+      },
+      {
+        "nome": "Monitoramento",
+        "preco": "R$ 150/mês",
+        "onde": "página para quem recusa a Gestão",
+        "e": "vigia de 5 em 5 min, alerta no Telegram, resumo mensal",
+        "nao_e": "conserto não incluso",
+        "link": "https://instalador.talles.dev/oferta/monitoramento"
+      }
+    ],
+    "upsells": [
+      {
+        "nome": "Atendimento no WhatsApp",
+        "preco": "R$ 3.000",
+        "cobranca": "única",
+        "e": "configurado no número dele; responde, qualifica e passa o lead",
+        "nao_e": "não vem na instalação de R$ 47",
+        "link": "https://instalador.talles.dev/oferta/whatsapp"
+      }
+    ],
+    "degraus_acima": [
+      {
+        "nome": "Raio-X da Operação",
+        "preco": "R$ 12.000",
+        "quando": "só depois da compra da instalação registrada (ou para quem chegou pelo Raio-X), para negócio com equipe e faturamento para isso; o agente passa para o Talles; antes da compra, nem o nome, nem o preço, nem os números de cases"
+      },
+      {
+        "nome": "Copiar a minha operação",
+        "preco": "R$ 48.000",
+        "quando": "depois do Raio-X, com o valor do Raio-X abatido; o agente passa para o Talles; não é a implantação do Raio-X"
+      }
+    ],
+    "regras": [
+      "planos são independentes; cancelou, a instalação continua na VPS dele",
+      "não vende o servidor nem o Codex; a Conta do Gemini é opcional na compra",
+      "não é curso; quem quer aprender vai para outro caminho",
+      "senha, token e IP só pelo formulário cifrado, nunca na conversa",
+      "sem desconto, sem promessa de faturamento, sem contador ou escassez falsos",
+      "não dizer que existe vídeo; hoje não há vídeos nem prova de instalação para mostrar",
+      "não prometer nem agendar contato; o próximo passo vai para o registro"
+    ]
+  },
+  "raiox": {
+    "nome": "Raio-X de Operação",
+    "preco": "R$ 12.000",
+    "cobranca": "à vista, único, sem desconto",
+    "ancora": "a implantação do Raio-X, R$ 48.000, 21 dias, 3 a 5 fluxos (dita antes do Raio-X)",
+    "duracao": "7 dias corridos",
+    "vagas": "as de capacidade.json: vagas_total por mês, vagas_restantes agora",
+    "garantia": "no dia 7, critério assinado no dia 1 não cumprido = devolução integral",
+    "implantacao": {
+      "nome": "Implantação do Raio-X",
+      "preco": "R$ 48.000",
+      "e": "o passo seguinte de quem fez o Raio-X: 21 dias, 3 a 5 fluxos; os R$ 12.000 do Raio-X abatem inteiros",
+      "sustentacao": "R$ 7.000/mês até 3 fluxos, R$ 9.000 acima, até 6h de ajuste por ciclo",
+      "nao_e": "não é o Copiar a minha operação"
+    },
+    "copiar_a_minha_operacao": {
+      "nome": "Copiar a minha operação",
+      "preco": "R$ 48.000",
+      "e": "outro produto: reproduz no servidor do cliente a operação do Talles (núcleo e módulos), com o valor do Raio-X abatido; nunca leva as contas, bots, números, memória, bancos nem a persona do Talles",
+      "nao_e": "não é a implantação do Raio-X: não é a âncora e não tem 21 dias, fluxos nem sustentação"
+    },
+    "bonus": "o retrato do seu mercado, os 3 concorrentes dele lidos (vale R$ 2.000 avulso)",
+    "perfil": "negócio que já fatura de R$ 100 mil a 1 milhão por mês, com gente dependendo do dono",
+    "pergunta_faturamento": "mais perto de R$ 50 mil, de R$ 100 mil ou acima de R$ 300 mil por mês (as faixas não são números de prova)",
+    "comparacao": [
+      "um dev pleno custa R$ 12 a 18 mil por mês e leva cerca de 3 meses para entender a operação",
+      "agência de automação cobra R$ 5 a 15 mil por mês em contrato de 6 meses"
+    ],
+    "fechamento": "contrato e pagamento são do Talles; o agente escala"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "event": "Message",
+  "instance": "whatsapp",
+  "data": {
+    "key": {
+      "remoteJid": "5511999990000@s.whatsapp.net",
+      "fromMe": false,
+      "id": "fixture-text-001"
+    },
+    "pushName": "Contato Fixture",
+    "message": {
+      "conversation": "Olá, esta é uma mensagem de teste."
+    },
+    "messageType": "conversation",
+    "messageTimestamp": 1790304000
+  }
+}

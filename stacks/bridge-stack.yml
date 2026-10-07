@@ -1,0 +1,24 @@
+version: "3.8"
+services:
+  bridge:
+    image: evolution-chatwoot-bridge:latest
+    environment:
+      BRIDGE_DB: /data/bridge.db
+      EVOLUTION_URL: http://evogo_evolution:4000
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
+      EVOLUTION_INSTANCE: whatsapp
+      CHATWOOT_URL: http://chatwoot_rails:3000
+      CHATWOOT_INBOX_IDENTIFIER: SET_AFTER_CHATWOOT_SETUP
+      CHATWOOT_API_ACCESS_TOKEN: ${CHATWOOT_API_ACCESS_TOKEN}
+      CHATWOOT_ACCOUNT_ID: SET_AFTER_CHATWOOT_SETUP
+      CHATWOOT_APP_TOKEN: ${CHATWOOT_APP_TOKEN}
+      HERMES_URL: http://hermes_hermes:8642/v1
+      HERMES_API_KEY: ${HERMES_API_KEY}
+      HERMES_MODEL: hermes-agent
+    volumes: [bridge_data:/data]
+    networks: [ai_stack]
+    deploy: {replicas: 1, placement: {constraints: [node.role == manager]}, restart_policy: {condition: on-failure}}
+volumes:
+  bridge_data: {name: evolution_chatwoot_bridge}
+networks:
+  ai_stack: {external: true}

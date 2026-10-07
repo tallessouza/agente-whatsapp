@@ -1,0 +1,30 @@
+# Hermes public support/SDR policy. Mounted read-only by the service.
+# 2026-09-27: skills removed from the SDR (persona carries the whole offer; skills index leaked names).
+platform_toolsets:
+  api_server:
+    - web
+    - vision
+    - clarify
+
+agent:
+  disabled_toolsets:
+    - terminal
+    - file
+    - process
+    - patch
+    - code_execution
+    - delegation
+    - cronjob
+    - skills_hub
+    - skills
+
+skills:
+  write_approval: true
+
+memory:
+  write_approval: true
+
+approvals:
+  mode: smart
+  unattended_mode: deny
+  cron_mode: deny

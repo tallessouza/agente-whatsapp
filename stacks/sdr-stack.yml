@@ -1,0 +1,42 @@
+# Deploy: export the secrets below in the shell, then
+#   sudo -E docker stack deploy -c sdr-brain/stack.yml sdr
+# The service resolves as `sdr_brain` on ai_stack (never use short aliases there).
+# No port is published: only the bridge talks to it over the overlay network.
+version: "3.8"
+services:
+  brain:
+    image: sdr-brain:${SDR_BRAIN_IMAGE_TAG:-v3}
+    environment:
+      SDR_BRAIN_TOKEN: ${SDR_BRAIN_TOKEN:?set SDR_BRAIN_TOKEN}
+      SDR_BRAIN_DB: /data/sdr-brain.db
+      SDR_BRAIN_LLM_URL: http://omniroute_omniroute:20129/v1
+      SDR_BRAIN_LLM_KEY: ${SDR_BRAIN_LLM_KEY:?set SDR_BRAIN_LLM_KEY}
+      SDR_BRAIN_MODEL: ${SDR_BRAIN_MODEL:-agy/gemini-3.7-flash-low}
+      BRIDGE_URL: http://integration_bridge:8080
+      CHATWOOT_URL: http://chatwoot_rails:3000
+      CHATWOOT_ACCOUNT_ID: "1"
+      CHATWOOT_API_TOKEN: ${CHATWOOT_API_TOKEN:?set CHATWOOT_API_TOKEN}
+      OPENREPLY_DSN: ${OPENREPLY_DSN:-}
+      # Business Discovery: token of the "Elemsm" system user (creds: tokenmeta). Export it before redeploying.
+      META_GRAPH_TOKEN: ${META_GRAPH_TOKEN:?set META_GRAPH_TOKEN (creds tokenmeta)}
+      IG_BUSINESS_ID: ${IG_BUSINESS_ID:-17841460228743369}
+      APIFY_TOKEN: ${APIFY_TOKEN:-}
+      # Follow-up window in local hours (end exclusive). 0-24 = around the clock.
+      SDR_BUSINESS_START_HOUR: "${SDR_BUSINESS_START_HOUR:-0}"
+      SDR_BUSINESS_END_HOUR: "${SDR_BUSINESS_END_HOUR:-24}"
+    volumes:
+      - sdr_brain_data:/data
+    networks:
+      - ai_stack
+      - openreply_internal
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+networks:
+  ai_stack:
+    external: true
+  openreply_internal:
+    external: true
+volumes:
+  sdr_brain_data:

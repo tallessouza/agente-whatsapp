@@ -1,0 +1,20 @@
+{
+  "event": "Message",
+  "instance": "whatsapp",
+  "data": {
+    "key": {
+      "remoteJid": "5511999990000@s.whatsapp.net",
+      "fromMe": false,
+      "id": "fixture-media-001"
+    },
+    "pushName": "Contato Fixture",
+    "message": {
+      "imageMessage": {
+        "caption": "Legenda da imagem de teste",
+        "mimetype": "image/jpeg"
+      }
+    },
+    "messageType": "imageMessage",
+    "messageTimestamp": 1790304001
+  }
+}

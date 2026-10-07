@@ -1,0 +1,112 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: openreply
+      POSTGRES_USER: openreply
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks: [internal]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U openreply -d openreply]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+
+  redis:
+    image: redis:7-alpine
+    command: [redis-server, --appendonly, yes]
+    volumes:
+      - redis_data:/data
+    networks: [internal]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+
+  migrate:
+    image: openreply:5760181
+    command: [npm, run, db:migrate]
+    environment: &app_env
+      NODE_ENV: production
+      NEXTAUTH_URL: https://openreply.talles.dev
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      CRON_SECRET: ${CRON_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      DATABASE_URL: postgresql://openreply:${SENHA}@postgres:5432/openreply
+      REDIS_URL: redis://redis:6379
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      EMAIL_FROM: OpenReply <login@talles.dev>
+      ALLOWED_EMAILS: ${ALLOWED_EMAILS}
+      INSTAGRAM_APP_ID: '1786674369066975'
+      INSTAGRAM_APP_SECRET: ${INSTAGRAM_APP_SECRET}
+      FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET}
+      WEBHOOK_VERIFY_TOKEN: ${WEBHOOK_VERIFY_TOKEN}
+      META_GRAPH_API_VERSION: v25.0
+    networks: [internal]
+    deploy:
+      restart_policy: {condition: none}
+      replicas: 1
+
+  web:
+    image: openreply:5760181
+    command: [npm, run, start]
+    environment: *app_env
+    networks: [internal, public]
+    ports:
+      - target: 3000
+        published: 3000
+        protocol: tcp
+        mode: host
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      restart_policy: {condition: on-failure}
+
+  worker:
+    image: openreply:5760181
+    command: [npm, run, worker]
+    environment: *app_env
+    networks: [internal]
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      restart_policy: {condition: on-failure}
+
+  cron:
+    image: openreply:5760181
+    command: [sh, scripts/cron.sh]
+    environment:
+      <<: *app_env
+      CRON_BASE_URL: http://web:3000
+    networks: [internal]
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      restart_policy: {condition: on-failure}
+
+networks:
+  internal:
+    external: true
+    name: openreply_internal
+  public:
+    external: true
+    name: openreply_public
+
+volumes:
+  postgres_data:
+    name: openreply_postgres_data
+  redis_data:
+    name: openreply_redis_data

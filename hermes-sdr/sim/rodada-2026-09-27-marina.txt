@@ -1,0 +1,78 @@
+
+[1] LEAD: E aí! Sou o @marina.escala e quero saber mais sobre o Raio-X
+    AGENTE: Sou o agente do Talles.
+    AGENTE: O que trava na sua operação quando você fica uma semana fora?
+    [diretivas] registro:arroba=@marina.escala
+
+[2] LEAD: o suporte vira um caos total. 
+
+minhas meninas não dão conta das dúvidas mais técnicas e tudo trava em mim... se eu fico off acumula tudo, aluna começa a reclamar e ameaçar cancelamento
+    AGENTE: Quantas pessoas hoje dependem de você para destravar isso?
+    [diretivas] registro:dor="o suporte vira um caos total. minhas meninas não dão conta das dúvidas mais técnicas e tudo trava em mim... se eu fico off acumula tudo, aluna começa a reclamar e ameaçar cancelamento"
+
+[3] LEAD: as 2 meninas do suporte... e no fim as 1400 alunas ativas acabam sendo afetadas né
+    AGENTE: São 1.125 execuções em 344 projetos rodando sem travar em fundador.
+    AGENTE: Você já tentou resolver com ferramenta ou com freela? O que aconteceu?
+    [diretivas] registro:triagem=qualificado
+
+[4] LEAD: já sim... paguei 8 mil pra uma agência de chatbot e foi dinheiro jogado fora.
+
+entregaram um bot super genérico que inventa coisa, ninguém usa e as meninas preferem me mandar msg do que usar ele. fiquei bem traumatizada pra falar a verdade
+    AGENTE: Quando o suporte vira esse caos total, isso te custa mais tempo seu ou dinheiro do negócio?
+
+[5] LEAD: os dois na real...
+
+eu perco horas do meu dia apagando fogo em vez de focar no negócio, e quando aluna se frustra pede reembolso ou não renova. então é tempo e dinheiro direto no ralo
+    AGENTE: Se o suporte rodasse sem você, essa semana ia pra vender mais ou pra respirar?
+
+[6] LEAD: respirar primeiro kkk e focar em vender né. 
+
+tenho um lançamento chegando em menos de 2 meses e preciso da cabeça livre pra focar nisso, não em responder dúvida básica todo dia
+    AGENTE: Esse lançamento tem data marcada? Qual?
+
+[7] LEAD: tá marcado pro dia 24 do mês que vem, uns 50 dias mais ou menos
+    AGENTE: Resolver isso é prioridade deste mês, ou é algo pra mais adiante?
+
+[8] LEAD: tem que ser pra agora. prometi uma ia pras alunas no último lançamento e já to atrasada com isso, o pessoal ta me cobrando... 
+
+só preciso ter certeza que realmente funciona dessa vez e se dá tempo antes do dia 24
+    AGENTE: Então o que trava é o suporte virando caos com as meninas dependendo de você pra dúvida técnica, e isso te custa tempo que devia ir pro lançamento e dinheiro em reembolso.
+    AGENTE: É isso, ou tem mais alguma coisa?
+
+[9] LEAD: é basicamente isso. 
+
+só tem o detalhe de que tenho mais de 600 aulas gravadas lá na plataforma... preciso que isso realmente aprenda meu método e que seja seguro, não posso expor meu conteúdo nem dados das alunas. 
+
+e meu medo do time não usar de novo se for complicado.
+    AGENTE: A política de dados é direta: roda em ambiente próprio, separado, e todo o acervo de origem é descartado no dia seguinte ao encerramento.
+    AGENTE: A implantação completa com 3 a 5 fluxos rodando é R$ 48.000 em 21 dias.
+    AGENTE: Faz sentido pro seu momento, ou a prioridade é outra?
+
+[10] LEAD: nossa, 48k é bem salgado hein... 
+
+o prazo de 21 dias me atende por causa do lançamento, mas é uma grana alta pra arriscar de novo depois do trauma com o outro bot.
+
+como eu tenho certeza que minhas meninas vão realmente conseguir usar isso no dia a dia e que a IA vai responder certinho baseado nas 600 aulas sem ficar inventando coisa?
+    AGENTE: Entendo totalmente o receio depois de ter gastado com o bot anterior.
+    AGENTE: O Raio-X de Operação são 7 dias corridos por R$ 12.000 à vista, com 1 fluxo construído e rodando em paralelo, e o valor abate inteiro se você subir pra implantação depois.
+    AGENTE: No dia 1 a gente assina o critério de pronto do que a IA pode e não pode responder, e no dia 7, se não cumprir, o valor é devolvido integralmente.
+
+O dia 3 mapeia exatamente o gargalo do suporte pra IA responder sem inventar nada. Você quer ver como isso roda na prática, ou prefere tirar mais dúvidas do processo?
+    [diretivas] registro:ancora_reacao="nossa, 48k é bem salgado hein... o prazo de 21 dias me atende por causa do lançamento, mas é uma grana alta pra arriscar de novo depois do trauma com o outro bot."; registro:preco_dado=sim
+
+[11] LEAD: olha, com essa garantia de 7 dias e abatendo do valor total fica bem mais seguro pra mim... 
+
+quero ver na prática sim. como a gente faz? tem alguma call pra alinhar os detalhes?
+    AGENTE: No dia 1 a gente assina o critério de pronto, testa os acessos e registra como o suporte roda hoje com o seu time, tudo por aqui e sem tomar o seu tempo com reunião.
+    AGENTE: Você acredita que ter esse fluxo rodando em 7 dias te deixa mais perto de ter a cabeça livre pro lançamento?
+    [diretivas] registro:pergunta_objetivo=pendente
+
+[12] LEAD: com certeza, preciso muito tirar isso da frente pra focar no dia 24.
+
+o que você precisa de mim agora pra gente começar? pode mandar o link/pix pra fechar
+    AGENTE: Fechado: Raio-X, 7 dias, começando pelo critério de pronto no dia 1.
+    AGENTE: As vagas de outubro são 4; restam 4.
+    AGENTE: Vou chamar o Talles agora e ele te manda o contrato e os dados de pagamento por aqui mesmo.
+    [diretivas] registro:desfecho=fechou; escalar:fechamento — mandar contrato e pagamento=
+
+== escalou para o Talles; fim da simulação ==

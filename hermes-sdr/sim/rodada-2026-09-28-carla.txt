@@ -1,0 +1,119 @@
+
+[1] LEAD: E aí! Sou o @carla.beauty e quero saber mais sobre o Raio-X
+    AGENTE: Oi, Carla! Sou o agente do Talles — ele me colocou aqui pra conduzir as conversas antes de entrar.
+    AGENTE: Vi que você cria conteúdo UGC de beauty e tem loja própria também.
+    AGENTE: Me conta uma coisa: o que trava na sua operação quando você fica uma semana fora?
+
+[2] LEAD: nossa se eu sumir uma semana a loja praticamente para kkk
+
+tudo depende de mim hj em dia... se eu não fico em cima cobrando as meninas demoram horrores pra responder no whats e esquecem dos clientes
+
+basicamente as vendas despencam
+    AGENTE: Entendido. Atendimento dependendo de você pra não morrer — isso é pesado.
+    AGENTE: Quantas pessoas hoje dependem de você pra destravar isso?
+
+[3] LEAD: tenho 6 meninas aqui comigo
+
+elas recebem por diaria entao nao tem mto compromisso sabe?
+
+qualquer duvida de cliente ou problema sou eu q tenho q resolver se nao elas travam ali mesmo
+    AGENTE: Faz sentido — sem dono claro, a dúvida para na fila e o cliente some.
+    AGENTE: Você já tentou resolver isso com alguma ferramenta ou freela? O que aconteceu?
+
+[4] LEAD: nunca contratei nenhuma ferramenta nao
+
+nem sei mexer nessas coisas direito pra ser bem sincera kkk
+
+o que eu tentei foi ir colocando mais meninas achando q ia agilizar mas so aumentou meu custo com diaria
+
+como q funciona esse raio-x de vcs na pratica?
+    (revisor reescreveu: regra 6: carteirada fora da redação exata e regra 8: limite de 3 mensagens)
+    rascunho: Boa pergunta, deixa eu te explicar direto. / O Talles entra na sua operação por 7 dias. Nos primeiros dias ele mapeia onde trava — no seu caso, esse gargalo do atendimento onde as meninas param sem você. No dia 6 você já vê um fluxo rodando com os dados da sua loja, não uma apresentação, a coisa funcionando de verdade. No dia 7 ele entrega tudo. / Do lado de fora, o Talles cuidou de operações com 
+    AGENTE: O Talles entra na sua operação por 7 dias. Nos primeiros dias ele mapeia onde trava — no seu caso, o gargalo do atendimento onde as meninas param sem você. No dia 6 você já vê um fluxo rodando com os dados da sua loja, e no dia 7 ele entrega tudo.
+    AGENTE: Pra você ter uma referência, o Talles cuidou de um SaaS com 30 mil usuários e 18 mil agentes, que contactou 9 milhões de números de WhatsApp.
+    AGENTE: Resolver esse gargalo é prioridade pra você agora, ou é algo que você tá pensando pra mais adiante?
+    [diretivas] registro:dor="se eu sumir uma semana a loja praticamente para... tudo depende de mim hj em dia... se eu não fico em cima cobrando as meninas demoram horrores pra responder no whats e esquecem dos clientes... basicamente as vendas despencam"
+
+[5] LEAD: é prioridade sim, to querendo arrumar a casa pro fim de ano agora
+
+preciso vender mais e se der diminuir essas diarias pq ta pesando no bolso
+
+mas o que seria esse "fluxo" que vc falou? sou meio leiga com isso kkk e isso funciona pra loja menor igual a minha?
+    AGENTE: É uma boa dúvida, e honestidade aqui vale mais que pitch.
+    AGENTE: O fluxo seria basicamente: cliente chega no WhatsApp da loja, recebe resposta na hora, dúvida comum é resolvida sem precisar de nenhuma das meninas, e o que for exceção chega pra você já triado. Sem você ter que ficar em cima.
+    AGENTE: Agora, sobre funcionar pra sua operação — preciso entender melhor antes de afirmar qualquer coisa.
+
+Você me disse que as vendas despencam quando você some. Isso acontece mais pelo tempo que as meninas demoram pra responder, ou porque elas não sabem o que responder quando aparece uma dúvida mais difícil?
+
+[6] LEAD: é os dois na verdade...
+
+elas demoram séculos pra responder e se a cliente pergunta algo um pouco mais específico de tom de maquiagem ou produto elas já travam
+
+e o pior é que se a pessoa não compra na hora elas nunca mais mandam mensagem, zero follow-up
+
+isso que vc falou de fluxo faz isso de chamar a cliente de volta tb?
+    AGENTE: Sim, follow-up automático é exatamente o tipo de coisa que entra num fluxo desse.
+    AGENTE: Mas antes de eu afirmar que resolve tudo isso na sua operação, preciso ser honesta contigo sobre uma coisa.
+    AGENTE: Você me disse que não tem muita familiaridade com ferramenta. O Raio-X não é curso — o Talles constrói e entrega rodando. Do lado de você, o que ele precisa é de um responsável nomeado pra acompanhar os 7 dias, alguém que possa testar acesso e dar informações da loja no dia 1. Poderia ser você mesma, ou uma das meninas de confiança.
+
+Tem alguém assim no seu time, ou isso ainda não existe?
+
+[7] LEAD: teria que ser eu mesma
+
+as meninas nao da pra confiar nisso nao kkk cada dia ta uma e elas nao tem esse compromisso
+
+mas toma muito do meu tempo nesses 7 dias? pq minha rotina é bem corrida
+
+e quanto custa esse trabalho do talles?
+    AGENTE: Não toma muito não. O Talles precisa de você basicamente no dia 1 — umas 10 horas do seu time pra registrar como funciona hoje e testar os acessos. Depois ele constrói em paralelo, sem parar o que você já faz.
+    AGENTE: Antes de te passar o número, deixa eu confirmar uma coisa com você.
+    AGENTE: Você me disse que as vendas despencam quando some, as meninas travam nas dúvidas de produto e zero follow-up. Se o Talles mapeasse exatamente onde isso trava e entregasse um fluxo rodando em 7 dias — atendimento respondendo na hora, follow-up automático, dúvida de tom de make resolvida sem depender das meninas — isso resolve o problema que você descreveu, ou tem algo antes disso que eu não entendi ainda?
+
+[8] LEAD: nossa, se fizer tudo isso de verdade resolve uns 90% da minha dor de cabeça kkk
+
+ia me ajudar demais a cortar essas diárias e vender mais no fim de ano
+
+mas me fala logo os valores... meu caixa tá meio apertado esse mês e preciso ver se cabe no meu bolso
+    (revisor reescreveu: regra 11: âncora e Raio-X juntos no mesmo turno)
+    rascunho: Entendo totalmente, e vou ser direta contigo antes do número. / Resolver isso de ponta a ponta — atendimento, follow-up, dúvidas de produto — do jeito mais completo, com 3 a 5 fluxos rodando em 21 dias, é a implantação: R$ 48.000. / Não é por aí que eu começaria com você.
+
+Existe um passo antes, que é o Raio-X: R$ 12.000, 7 dias. O Talles mapeia o gargalo da sua operação no dia 3 e entrega um flux
+    AGENTE: Entendo totalmente.
+    AGENTE: Pra resolver isso de ponta a ponta — atendimento, follow-up, dúvidas de produto — com 3 a 5 fluxos rodando em 21 dias, a implantação é R$ 48.000.
+    AGENTE: Faz sentido pro tamanho do que você me contou, ou ficou longe da sua realidade hoje?
+    [diretivas] registro:preco_dado=sim
+
+[9] LEAD: nossa ta doido kkkk
+
+48 mil ta totalmente fora da minha realidade
+
+minha loja num mes muito bom fatura 35k... sem condicoes nenhuma de pagar isso, meu caixa ta super apertado
+    (revisor reescreveu: regra 16: lead fora do perfil (faturamento abaixo de R$ 100 mil/mês e sem caixa), não pode dar preço nem insistir)
+    rascunho: Entendo totalmente. / Você me disse que num mês muito bom fatura 35k. R$ 12.000 à vista é 34% do seu melhor mês — e com caixa apertado, isso é real. / Vou ser honesta contigo: o Raio-X foi feito pra operação que já tem musculatura pra absorver esse investimento sem comprometer o próprio funcionamento do negócio. Se o caixa tá apertado agora, forçar não faz sentido.
+
+O que você acha de retomar quan
+    AGENTE: Entendo totalmente, Carla. Com o faturamento nesse patamar e o caixa apertado, o Raio-X pesaria demais na sua operação agora.
+    AGENTE: O mais responsável é focar em estruturar a loja com o que você já tem antes de fazer um investimento desse porte.
+    [diretivas] registro:ancora_reacao="nossa ta doido kkkk 48 mil ta totalmente fora da minha realidade / minha loja num mes muito bom fatura 35k... sem condicoes nenhuma de pagar isso, meu caixa ta super apertado"
+
+[10] LEAD: nossa obrigada pela sinceridade de verdade
+
+a maioria tenta empurrar de qualquer jeito mesmo sabendo que não dá kkk
+
+vou tentar organizar as coisas por aqui com as meninas primeiro... quem sabe mais pra frente quando o caixa der uma respirada! valeu mesmo
+    (revisor reescreveu: regra 16: não insistir com lead fora do perfil)
+    rascunho: Boa sorte com o fim de ano, Carla — e obrigada pela conversa honesta também. / Quando o caixa respirar, volta aqui. Me diz um mês pra eu te colocar na lista de espera?
+    AGENTE: Boa sorte com o fim de ano, Carla — e obrigado pela conversa honesta também.
+    AGENTE: Quando o caixa respirar e fizer sentido, as portas estão abertas por aqui.
+
+[11] LEAD: obrigada de verdade! boas vendas pra vcs tb ✨
+
+se o fim de ano bombar eu volto a procurar vcs
+
+valeu mesmo!
+    AGENTE: Boa sorte com o fim de ano, Carla — e obrigado pela conversa honesta também.
+    AGENTE: Quando o caixa respirar e fizer sentido, as portas estão abertas por aqui.
+    [diretivas] registro:triagem=desqualificado; registro:motivo_desqualificacao=faturamento de até 35k/mês com caixa apertado, R$ 12.000 comprometeria o funcionamento do negócio; registro:desfecho=desqualificado
+
+[12] LEAD: combinado! até mais 🙌
+    AGENTE: Até mais, Carla! 🙌

@@ -1,0 +1,20 @@
+{
+  "event": "Message",
+  "instance": "whatsapp",
+  "data": {
+    "key": {"remoteJid": "5511999990000@s.whatsapp.net", "fromMe": false, "id": "fixture-pix-002"},
+    "pushName": "Contato Fixture",
+    "message": {
+      "interactiveMessage": {
+        "body": {"text": "Pagamento via Pix"},
+        "nativeFlowMessage": {
+          "buttons": [{
+            "name": "payment_info",
+            "buttonParamsJson": "{\"type\":\"pix\",\"currency\":\"BRL\",\"name\":\"Talles\",\"keyType\":\"PHONE\",\"key\":\"+5548999425822\"}"
+          }]
+        }
+      }
+    },
+    "messageType": "interactiveMessage"
+  }
+}

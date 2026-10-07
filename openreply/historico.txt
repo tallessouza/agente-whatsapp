@@ -1,0 +1,3 @@
+2ef368a Redirect unknown tracked links to the public home
+7e3107e Per-recipient tracked links, click attribution and DM sender username
+5760181 feat: add Traditional Chinese UI and persistent language switching (#67)

@@ -1,0 +1,15 @@
+{
+  "event": "SEND_MESSAGE",
+  "instance": "whatsapp",
+  "data": {
+    "key": {
+      "remoteJid": "5511999990000@s.whatsapp.net",
+      "fromMe": true,
+      "id": "fixture-outgoing-001"
+    },
+    "pushName": "Super Agentes",
+    "message": {"conversation": "Resposta enviada de teste"},
+    "messageType": "conversation",
+    "messageTimestamp": 1790304004
+  }
+}

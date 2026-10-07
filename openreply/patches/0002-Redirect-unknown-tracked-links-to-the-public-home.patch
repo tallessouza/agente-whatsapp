@@ -1,0 +1,51 @@
+From 2ef368a4db77569baf1f8c1b8c3f0724ec83ed34 Mon Sep 17 00:00:00 2001
+From: Talles Souza <tsxtalles@gmail.com>
+Date: Mon, 28 Sep 2026 00:37:19 +0200
+Subject: [PATCH 2/2] Redirect unknown tracked links to the public home
+
+Behind a proxy request.url is the internal origin, so a deleted link sent the
+lead to https://localhost:3000/.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ __tests__/recipient-link.test.ts | 8 ++++++++
+ app/r/[slug]/route.ts            | 4 +++-
+ 2 files changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/__tests__/recipient-link.test.ts b/__tests__/recipient-link.test.ts
+index a1a32d0..83ad7e8 100644
+--- a/__tests__/recipient-link.test.ts
++++ b/__tests__/recipient-link.test.ts
+@@ -65,6 +65,14 @@ describe("per-recipient tracked links", () => {
+     });
+   });
+ 
++  it("sends unknown links to the public home, not the internal origin", async () => {
++    process.env.NEXTAUTH_URL = "https://openreply.example";
++    mockPrisma.trackedLink.findUnique.mockResolvedValue(null);
++    const response = await GET(new Request("http://localhost:3000/r/gone") as Parameters<typeof GET>[0], { params: Promise.resolve({ slug: "gone" }) });
++    expect(response.headers.get("location")).toBe("https://openreply.example/");
++    delete process.env.NEXTAUTH_URL;
++  });
++
+   it("keeps anonymous clicks working without a token", async () => {
+     mockPrisma.trackedLink.findUnique.mockResolvedValue({
+       id: "link_1", workspaceId: "ws_1", automationId: "auto_1",
+diff --git a/app/r/[slug]/route.ts b/app/r/[slug]/route.ts
+index 2b728d2..6f2b921 100644
+--- a/app/r/[slug]/route.ts
++++ b/app/r/[slug]/route.ts
+@@ -25,7 +25,9 @@ export async function GET(request: NextRequest, { params }: RedirectRouteProps)
+   });
+ 
+   if (!trackedLink) {
+-    return NextResponse.redirect(new URL("/", request.url), { status: 302 });
++    // Behind a proxy request.url is the internal origin (localhost:3000); send
++    // unknown links to the public home instead.
++    return NextResponse.redirect(new URL("/", process.env.NEXTAUTH_URL ?? request.url), { status: 302 });
+   }
+ 
+   // A signed ?t= names the Instagram user the DM went to: the click is theirs,
+-- 
+2.43.0
+

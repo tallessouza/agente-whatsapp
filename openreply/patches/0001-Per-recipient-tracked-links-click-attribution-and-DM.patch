@@ -1,0 +1,524 @@
+From 7e3107eece927d892aa8746e14e21b2c2850ec25 Mon Sep 17 00:00:00 2001
+From: Talles Souza <tsxtalles@gmail.com>
+Date: Mon, 28 Sep 2026 00:32:13 +0200
+Subject: [PATCH 1/2] Per-recipient tracked links, click attribution and DM
+ sender username
+
+Each DM link carries a signed ?t= naming the IGSID it was sent to; the redirect
+records who clicked (LinkClick.recipientId/recipientName) and fills {username}
+in the destination at click time, so a wa.me prefilled text can carry the @
+behind a button. DM-only senders get their @ from the Instagram profile API.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ __tests__/dm-worker.test.ts                   |  9 ++-
+ __tests__/recipient-link.test.ts              | 79 +++++++++++++++++++
+ app/r/[slug]/route.ts                         | 18 ++++-
+ lib/instagram/read-analytics.ts               | 12 +++
+ lib/meta/client.ts                            | 24 ++++++
+ lib/queue/dm-worker.ts                        | 35 +++++---
+ lib/tracking/message.ts                       | 12 ++-
+ lib/tracking/recipient.ts                     | 57 +++++++++++++
+ .../migration.sql                             |  9 +++
+ prisma/schema.prisma                          |  4 +
+ 10 files changed, 241 insertions(+), 18 deletions(-)
+ create mode 100644 __tests__/recipient-link.test.ts
+ create mode 100644 lib/tracking/recipient.ts
+ create mode 100644 prisma/migrations/20260928010000_link_click_recipient/migration.sql
+
+diff --git a/__tests__/dm-worker.test.ts b/__tests__/dm-worker.test.ts
+index 7fc9967..6fb8ce3 100644
+--- a/__tests__/dm-worker.test.ts
++++ b/__tests__/dm-worker.test.ts
+@@ -580,15 +580,16 @@ describe("DM Worker — Full Pipeline", () => {
+     await processor(createMockJob());
+ 
+     // Primary button title comes from linkButtonLabel; the second from its
+-    // own stored label. Both point at their tracked /r/<slug> URLs.
++    // own stored label. Both point at their tracked /r/<slug> URLs, signed for
++    // this commenter so the click is attributed to them.
+     expect(mockSendPrivateReplyWithLinkButton).toHaveBeenCalledWith(
+       "decrypted_token",
+       "ig_456",
+       "comment_555",
+       "Hey commenter_user! Here is the offer:",
+       [
+-        { title: "Get offer", url: "http://localhost:3000/r/abc123" },
+-        { title: "Book a call", url: "http://localhost:3000/r/def456" },
++        { title: "Get offer", url: expect.stringMatching(/^http:\/\/localhost:3000\/r\/abc123\?t=[\w-]+\.[\w-]{16}$/) },
++        { title: "Book a call", url: expect.stringMatching(/^http:\/\/localhost:3000\/r\/def456\?t=[\w-]+\.[\w-]{16}$/) },
+       ]
+     );
+   });
+@@ -658,7 +659,7 @@ describe("DM Worker — Full Pipeline", () => {
+       "ig_456",
+       "comment_555",
+       "Hey commenter_user! Here is the offer:",
+-      [{ title: "Get offer", url: "http://localhost:3000/r/abc123" }]
++      [{ title: "Get offer", url: expect.stringMatching(/^http:\/\/localhost:3000\/r\/abc123\?t=[\w-]+\.[\w-]{16}$/) }]
+     );
+   });
+ 
+diff --git a/__tests__/recipient-link.test.ts b/__tests__/recipient-link.test.ts
+new file mode 100644
+index 0000000..a1a32d0
+--- /dev/null
++++ b/__tests__/recipient-link.test.ts
+@@ -0,0 +1,79 @@
++import { beforeEach, describe, expect, it, vi } from "vitest";
++
++const { mockPrisma } = vi.hoisted(() => ({
++  mockPrisma: {
++    trackedLink: { findUnique: vi.fn() },
++    linkClick: { create: vi.fn() },
++    dmLog: { findFirst: vi.fn() },
++  },
++}));
++
++vi.mock("@/lib/db/client", () => ({ prisma: mockPrisma }));
++
++import { GET } from "../app/r/[slug]/route";
++import { buildTrackedUrl } from "../lib/tracking/message";
++import { personalizeDestination, signRecipient, verifyRecipient } from "../lib/tracking/recipient";
++
++beforeEach(() => {
++  vi.clearAllMocks();
++  process.env.NEXTAUTH_SECRET = "test-secret-at-least-16";
++});
++
++describe("per-recipient tracked links", () => {
++  it("signs and verifies the recipient, rejecting forged or foreign tokens", () => {
++    const token = signRecipient("abc123", "1388507469800185");
++    expect(verifyRecipient("abc123", token)).toBe("1388507469800185");
++    expect(verifyRecipient("other", token)).toBeNull();
++    const forged = `${Buffer.from("999999999").toString("base64url")}.${token.split(".")[1]}`;
++    expect(verifyRecipient("abc123", forged)).toBeNull();
++    expect(verifyRecipient("abc123", "garbage")).toBeNull();
++    expect(verifyRecipient("abc123", null)).toBeNull();
++  });
++
++  it("adds the token to tracked urls only when the recipient is known", () => {
++    expect(buildTrackedUrl("abc123", "https://or.example")).toBe("https://or.example/r/abc123");
++    expect(buildTrackedUrl("abc123", "https://or.example", "1388507469800185")).toMatch(/^https:\/\/or\.example\/r\/abc123\?t=[\w-]+\.[\w-]{16}$/);
++  });
++
++  it("fills {username} in the destination, encoded, or drops it when unknown", () => {
++    const dest = "https://wa.me/554825000259?text=Sou%20o%20%40%7Busername%7D%20e%20quero";
++    expect(personalizeDestination(dest, "marina.escala")).toBe("https://wa.me/554825000259?text=Sou%20o%20%40marina.escala%20e%20quero");
++    expect(personalizeDestination("https://x.test/?u=@{username}", "a_b")).toBe("https://x.test/?u=%40a_b");
++    expect(personalizeDestination(dest, null)).toBe("https://wa.me/554825000259?text=Sou%20o%20%20e%20quero");
++  });
++
++  it("records who clicked and personalizes the redirect", async () => {
++    mockPrisma.trackedLink.findUnique.mockResolvedValue({
++      id: "link_1",
++      workspaceId: "ws_1",
++      automationId: "auto_1",
++      destinationUrl: "https://wa.me/554825000259?text=Sou%20o%20%40%7Busername%7D",
++      automation: { instagramAccountId: "ig_1" },
++    });
++    mockPrisma.dmLog.findFirst.mockResolvedValue({ commenterName: "marina.escala" });
++    mockPrisma.linkClick.create.mockResolvedValue({});
++    const token = signRecipient("abc123", "1388507469800185");
++
++    const response = await GET(
++      new Request(`https://or.example/r/abc123?t=${token}`) as Parameters<typeof GET>[0],
++      { params: Promise.resolve({ slug: "abc123" }) }
++    );
++
++    expect(response.headers.get("location")).toBe("https://wa.me/554825000259?text=Sou%20o%20%40marina.escala");
++    expect(mockPrisma.linkClick.create).toHaveBeenCalledWith({
++      data: expect.objectContaining({ recipientId: "1388507469800185", recipientName: "marina.escala", trackedLinkId: "link_1" }),
++    });
++  });
++
++  it("keeps anonymous clicks working without a token", async () => {
++    mockPrisma.trackedLink.findUnique.mockResolvedValue({
++      id: "link_1", workspaceId: "ws_1", automationId: "auto_1",
++      destinationUrl: "https://example.com/offer", automation: { instagramAccountId: "ig_1" },
++    });
++    mockPrisma.linkClick.create.mockResolvedValue({});
++    const response = await GET(new Request("https://or.example/r/abc123") as Parameters<typeof GET>[0], { params: Promise.resolve({ slug: "abc123" }) });
++    expect(response.headers.get("location")).toBe("https://example.com/offer");
++    expect(mockPrisma.dmLog.findFirst).not.toHaveBeenCalled();
++    expect(mockPrisma.linkClick.create).toHaveBeenCalledWith({ data: expect.objectContaining({ recipientId: null, recipientName: null }) });
++  });
++});
+diff --git a/app/r/[slug]/route.ts b/app/r/[slug]/route.ts
+index 4798715..2b728d2 100644
+--- a/app/r/[slug]/route.ts
++++ b/app/r/[slug]/route.ts
+@@ -1,6 +1,7 @@
+ import { NextRequest, NextResponse } from "next/server";
+ import { prisma } from "@/lib/db/client";
+ import { getRequestIp, hashClickIp } from "@/lib/tracking/server";
++import { personalizeDestination, verifyRecipient } from "@/lib/tracking/recipient";
+ 
+ type RedirectRouteProps = {
+   params: Promise<{ slug: string }>;
+@@ -27,8 +28,23 @@ export async function GET(request: NextRequest, { params }: RedirectRouteProps)
+     return NextResponse.redirect(new URL("/", request.url), { status: 302 });
+   }
+ 
++  // A signed ?t= names the Instagram user the DM went to: the click is theirs,
++  // and their @ can fill {username} in the destination (e.g. a wa.me text).
++  const recipientId = verifyRecipient(slug, new URL(request.url).searchParams.get("t"));
++  const recipientName = recipientId
++    ? (
++        await prisma.dmLog.findFirst({
++          where: { automationId: trackedLink.automationId, commenterId: recipientId, commenterName: { not: null } },
++          orderBy: { createdAt: "desc" },
++          select: { commenterName: true },
++        })
++      )?.commenterName ?? null
++    : null;
++
+   await prisma.linkClick.create({
+     data: {
++      recipientId,
++      recipientName,
+       workspaceId: trackedLink.workspaceId,
+       automationId: trackedLink.automationId,
+       instagramAccountId: trackedLink.automation.instagramAccountId,
+@@ -39,5 +55,5 @@ export async function GET(request: NextRequest, { params }: RedirectRouteProps)
+     },
+   });
+ 
+-  return NextResponse.redirect(trackedLink.destinationUrl, { status: 302 });
++  return NextResponse.redirect(personalizeDestination(trackedLink.destinationUrl, recipientName), { status: 302 });
+ }
+diff --git a/lib/instagram/read-analytics.ts b/lib/instagram/read-analytics.ts
+index 9ebfed4..29ee59a 100644
+--- a/lib/instagram/read-analytics.ts
++++ b/lib/instagram/read-analytics.ts
+@@ -22,6 +22,18 @@ export async function getUserFollowStatus({
+   }
+ }
+ 
++/** The sender's @ by IGSID. Direct Meta only; Zernio keeps the old fallback. */
++export async function getRecipientUsername({
++  context,
++  recipientId,
++}: {
++  context: InstagramContext;
++  recipientId: string;
++}): Promise<string | null> {
++  if (context.provider !== "META") return null;
++  return meta.getUserUsername(context.accessToken, recipientId);
++}
++
+ export async function getMediaInsights({
+   context,
+   mediaId,
+diff --git a/lib/meta/client.ts b/lib/meta/client.ts
+index c8759d3..ff842ac 100644
+--- a/lib/meta/client.ts
++++ b/lib/meta/client.ts
+@@ -283,6 +283,30 @@ export async function getUserFollowStatus(
+   }
+ }
+ 
++/**
++ * The @ of a user (by IGSID) who messaged or commented on the business
++ * account, via the Instagram Messaging profile API. Null when Meta does not
++ * return it, so callers keep their existing fallback.
++ */
++export async function getUserUsername(
++  accessToken: string,
++  recipientId: string
++): Promise<string | null> {
++  const url = new URL(`${instagramGraphBase()}/${recipientId}`);
++  url.searchParams.set("fields", "username");
++  try {
++    const response = await fetch(url.toString(), {
++      method: "GET",
++      headers: { Authorization: `Bearer ${accessToken}` },
++    });
++    if (!response.ok) return null;
++    const data = await response.json();
++    return typeof data?.username === "string" && data.username ? data.username : null;
++  } catch {
++    return null;
++  }
++}
++
+ /**
+  * A tappable web_url button in a DM button template. Instagram's button
+  * template supports up to 3 buttons; titles are capped at 20 chars by Meta.
+diff --git a/lib/queue/dm-worker.ts b/lib/queue/dm-worker.ts
+index ec5f12d..9b5d571 100644
+--- a/lib/queue/dm-worker.ts
++++ b/lib/queue/dm-worker.ts
+@@ -17,6 +17,7 @@ import {
+   MetaApiError,
+   RateLimitError,
+   TokenExpiredError,
++  getRecipientUsername,
+   getUserFollowStatus,
+   sendCommentReply,
+   sendDirectMessage,
+@@ -98,10 +99,11 @@ type WorkerTrackedLink = {
+  */
+ function buildLinkButtons(
+   trackedLinks: WorkerTrackedLink[],
+-  primaryLabel: string | null
++  primaryLabel: string | null,
++  recipientId?: string | null
+ ): { title: string; url: string }[] {
+   return trackedLinks.slice(0, 3).map((link, index) => ({
+-    url: buildTrackedUrl(link.slug),
++    url: buildTrackedUrl(link.slug, undefined, recipientId),
+     title:
+       (index === 0 ? primaryLabel : link.label) || link.label || "Open link",
+   }));
+@@ -116,14 +118,15 @@ function buildInlineLinkFallback(
+   message: string,
+   commenterName: string | null | undefined,
+   trackedLinks: WorkerTrackedLink[],
+-  bodyText: string
++  bodyText: string,
++  recipientId?: string | null
+ ): string {
+   const base =
+-    renderMessageWithTracking({ message, commenterName, trackedLinks }) ||
++    renderMessageWithTracking({ message, commenterName, trackedLinks, recipientId }) ||
+     bodyText;
+   const extraUrls = trackedLinks
+     .slice(1)
+-    .map((link) => buildTrackedUrl(link.slug));
++    .map((link) => buildTrackedUrl(link.slug, undefined, recipientId));
+   return extraUrls.length > 0 ? `${base}\n${extraUrls.join("\n")}` : base;
+ }
+ 
+@@ -161,6 +164,7 @@ async function sendRevealDirectMessage({
+         message: automation.dmMessage,
+         commenterName,
+         trackedLinks: automation.trackedLinks,
++        recipientId: userId,
+       }),
+     });
+     return;
+@@ -174,7 +178,8 @@ async function sendRevealDirectMessage({
+     }) || "Here's your link:";
+   const buttons = buildLinkButtons(
+     automation.trackedLinks,
+-    automation.linkButtonLabel
++    automation.linkButtonLabel,
++    userId
+   );
+ 
+   try {
+@@ -203,7 +208,8 @@ async function sendRevealDirectMessage({
+           automation.dmMessage,
+           commenterName,
+           automation.trackedLinks,
+-          bodyText
++          bodyText,
++          userId
+         ),
+       });
+     } catch {
+@@ -643,7 +649,8 @@ async function processComment(job: Job<ProcessCommentJob>): Promise<void> {
+           }) || "Here's your link:";
+         const buttons = buildLinkButtons(
+           automation.trackedLinks,
+-          automation.linkButtonLabel
++          automation.linkButtonLabel,
++          commenterId
+         );
+ 
+         try {
+@@ -669,7 +676,8 @@ async function processComment(job: Job<ProcessCommentJob>): Promise<void> {
+             automation.dmMessage,
+             commenterName,
+             automation.trackedLinks,
+-            bodyText
++            bodyText,
++            commenterId
+           );
+           try {
+             await sendPrivateReply({
+@@ -691,6 +699,7 @@ async function processComment(job: Job<ProcessCommentJob>): Promise<void> {
+           message: automation.dmMessage,
+           commenterName,
+           trackedLinks: automation.trackedLinks,
++          recipientId: commenterId,
+         });
+         await sendPrivateReply({
+           context: accessToken,
+@@ -1169,6 +1178,7 @@ async function processMessage(job: Job<ProcessMessageJob>): Promise<void> {
+       automationId: automation.id,
+       instagramAccountId: automation.instagramAccountId,
+       commenterId: senderId,
++      commenterName: null as string | null,
+       commentText: messageText,
+       commentId: dedupeId,
+       matchedKeyword: matchResult.matchedKeyword,
+@@ -1228,7 +1238,12 @@ async function processMessage(job: Job<ProcessMessageJob>): Promise<void> {
+       where: { automationId: automation.id, commenterId: senderId },
+       select: { commenterName: true },
+     });
+-    const commenterName = priorLog?.commenterName ?? null;
++    // DM-only senders were never named by a comment: ask Instagram for their
++    // @ so {username} and click attribution work for them too.
++    const commenterName =
++      priorLog?.commenterName ??
++      (await getRecipientUsername({ context: accessToken, recipientId: senderId }));
++    logBase.commenterName = commenterName;
+ 
+     // Follow gate: anyone not confirmed as a follower gets the prompt instead of
+     // the link, with the same `followcheck:` button that re-verifies on tap.
+diff --git a/lib/tracking/message.ts b/lib/tracking/message.ts
+index 7db70c5..fca4c1b 100644
+--- a/lib/tracking/message.ts
++++ b/lib/tracking/message.ts
+@@ -1,3 +1,5 @@
++import { signRecipient } from "./recipient";
++
+ export interface MessageTrackedLink {
+   slug: string;
+   destinationUrl: string;
+@@ -51,14 +53,16 @@ export function renderMessageWithoutLink({
+     .trim();
+ }
+ 
+-export function buildTrackedUrl(slug: string, baseUrl?: string) {
++export function buildTrackedUrl(slug: string, baseUrl?: string, recipientId?: string | null) {
+   const resolvedBaseUrl =
+     baseUrl ??
+     (typeof window !== "undefined"
+       ? window.location.origin
+       : process.env.NEXTAUTH_URL ?? "http://localhost:3000");
+ 
+-  return `${resolvedBaseUrl.replace(/\/$/, "")}/r/${slug}`;
++  const url = `${resolvedBaseUrl.replace(/\/$/, "")}/r/${slug}`;
++  // A DM to a known person gets its own signed link, so the click is theirs.
++  return recipientId ? `${url}?t=${signRecipient(slug, recipientId)}` : url;
+ }
+ 
+ export function renderMessageWithTracking({
+@@ -66,18 +70,20 @@ export function renderMessageWithTracking({
+   commenterName,
+   trackedLinks,
+   baseUrl,
++  recipientId,
+ }: {
+   message: string;
+   commenterName?: string | null;
+   trackedLinks?: MessageTrackedLink[];
+   baseUrl?: string;
++  recipientId?: string | null;
+ }) {
+   let rendered = message.replace(/\{username\}/gi, commenterName ?? "there");
+   const primaryLink = trackedLinks?.[0];
+ 
+   if (!primaryLink) return rendered;
+ 
+-  const trackedUrl = buildTrackedUrl(primaryLink.slug, baseUrl);
++  const trackedUrl = buildTrackedUrl(primaryLink.slug, baseUrl, recipientId);
+ 
+   if (/\{link\}/i.test(rendered)) {
+     return rendered.replace(/\{link\}/gi, trackedUrl);
+diff --git a/lib/tracking/recipient.ts b/lib/tracking/recipient.ts
+new file mode 100644
+index 0000000..6a1fdbc
+--- /dev/null
++++ b/lib/tracking/recipient.ts
+@@ -0,0 +1,57 @@
++import { createHmac, timingSafeEqual } from "crypto";
++
++/**
++ * Per-recipient tracked links.
++ *
++ * A DM button carries `/r/<slug>?t=<token>`, where the token names the
++ * Instagram user (IGSID) the DM was sent to, signed with NEXTAUTH_SECRET so a
++ * click can be attributed to that person without a database row per send and
++ * without anything visible in the WhatsApp text the lead may edit.
++ */
++
++function secret(): string {
++  return process.env.NEXTAUTH_SECRET ?? "";
++}
++
++function signature(slug: string, recipientId: string): string {
++  return createHmac("sha256", secret())
++    .update(`${slug}:${recipientId}`)
++    .digest("base64url")
++    .slice(0, 16);
++}
++
++export function signRecipient(slug: string, recipientId: string): string {
++  return `${Buffer.from(recipientId).toString("base64url")}.${signature(slug, recipientId)}`;
++}
++
++/** The IGSID in a token, or null when the token is missing, malformed or forged. */
++export function verifyRecipient(slug: string, token: string | null | undefined): string | null {
++  if (!token || !secret()) return null;
++  const [encoded, sig] = token.split(".");
++  if (!encoded || !sig) return null;
++  let recipientId: string;
++  try {
++    recipientId = Buffer.from(encoded, "base64url").toString("utf8");
++  } catch {
++    return null;
++  }
++  if (!/^[0-9]{5,32}$/.test(recipientId)) return null;
++  const expected = Buffer.from(signature(slug, recipientId));
++  const received = Buffer.from(sig);
++  if (expected.length !== received.length || !timingSafeEqual(expected, received)) return null;
++  return recipientId;
++}
++
++const USERNAME_PLACEHOLDER = /(%40|@)?(\{username\}|%7Busername%7D)/gi;
++
++/**
++ * Fill `{username}` in a destination URL at click time (URL-encoded), so a
++ * WhatsApp prefilled text can carry the @ even behind a tracked button.
++ * Unknown recipient: the placeholder (and a leading @) is dropped.
++ */
++export function personalizeDestination(url: string, username: string | null | undefined): string {
++  const handle = (username ?? "").replace(/^@/, "").trim();
++  return url.replace(USERNAME_PLACEHOLDER, (_match, at: string | undefined) =>
++    handle ? `${at ? "%40" : ""}${encodeURIComponent(handle)}` : ""
++  );
++}
+diff --git a/prisma/migrations/20260928010000_link_click_recipient/migration.sql b/prisma/migrations/20260928010000_link_click_recipient/migration.sql
+new file mode 100644
+index 0000000..70e0def
+--- /dev/null
++++ b/prisma/migrations/20260928010000_link_click_recipient/migration.sql
+@@ -0,0 +1,9 @@
++-- Per-recipient tracked links: a click names the Instagram user the DM went to.
++-- Nullable and idempotent: old clicks and links without ?t= keep working.
++
++-- AlterTable
++ALTER TABLE "LinkClick" ADD COLUMN IF NOT EXISTS "recipientId" TEXT;
++ALTER TABLE "LinkClick" ADD COLUMN IF NOT EXISTS "recipientName" TEXT;
++
++-- CreateIndex
++CREATE INDEX IF NOT EXISTS "LinkClick_recipientId_idx" ON "LinkClick"("recipientId");
+diff --git a/prisma/schema.prisma b/prisma/schema.prisma
+index d47085b..dd5c87d 100644
+--- a/prisma/schema.prisma
++++ b/prisma/schema.prisma
+@@ -300,6 +300,9 @@ model LinkClick {
+   automationId       String
+   instagramAccountId String
+   trackedLinkId      String
++  // Instagram user the per-recipient link was sent to (signed ?t= token).
++  recipientId        String?
++  recipientName      String?
+   ipHash             String?
+   userAgent          String?
+   referrer           String?
+@@ -314,6 +317,7 @@ model LinkClick {
+   @@index([automationId])
+   @@index([instagramAccountId])
+   @@index([trackedLinkId])
++  @@index([recipientId])
+   @@index([createdAt])
+   @@index([workspaceId, createdAt])
+ }
+-- 
+2.43.0
+

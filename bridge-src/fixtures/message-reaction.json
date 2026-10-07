@@ -1,0 +1,20 @@
+{
+  "event": "Message",
+  "instance": "whatsapp",
+  "data": {
+    "key": {
+      "remoteJid": "5511999990000@s.whatsapp.net",
+      "fromMe": false,
+      "id": "fixture-reaction-001"
+    },
+    "pushName": "Contato Fixture",
+    "message": {
+      "reactionMessage": {
+        "key": {"id": "fixture-text-001"},
+        "text": "👍"
+      }
+    },
+    "messageType": "reactionMessage",
+    "messageTimestamp": 1790304002
+  }
+}

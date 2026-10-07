@@ -1,0 +1,27 @@
+{
+  "event": "Message",
+  "instance": "whatsapp",
+  "data": {
+    "key": {
+      "remoteJid": "5511999990000@s.whatsapp.net",
+      "fromMe": false,
+      "id": "fixture-payment-001"
+    },
+    "pushName": "Contato Fixture",
+    "message": {
+      "requestPaymentMessage": {
+        "currencyCodeIso4217": "BRL",
+        "amount1000": 50000,
+        "requestFrom": "5511999990000@s.whatsapp.net",
+        "expiryTimestamp": 1790390400,
+        "noteMessage": {
+          "extendedTextMessage": {
+            "text": "Pagamento do pedido"
+          }
+        }
+      }
+    },
+    "messageType": "requestPaymentMessage",
+    "messageTimestamp": 1790304002
+  }
+}

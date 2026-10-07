@@ -1,0 +1,49 @@
+
+[1] LEAD: Oi! Vi o reel e quero saber mais sobre o Raio-X
+    AGENTE: Oi! Sou o agente do Talles.
+    AGENTE: Vi que você veio pelo reel do Raio-X.
+    AGENTE: O que trava na sua operação quando você fica uma semana fora?
+
+[2] LEAD: nossa se eu ficar uma semana fora a loja praticamente para kkk rindo de nervoso
+
+tudo depende de mim aqui
+
+tenho umas meninas vendendo no whats mas se eu não ficar em cima elas demoram muito pra responder, não vão atrás de cliente... se eu saio as vendas despencam
+    AGENTE: Pelo que você posta sobre os lançamentos de make na loja, o volume de mensagens deve ser constante.
+    AGENTE: O Talles cuidou de um SaaS com 30 mil usuários e 18 mil agentes, que contactou 9 milhões de números de WhatsApp.
+    AGENTE: Quantas pessoas hoje dependem de você para destravar isso?
+    [diretivas] registro:dor="se eu não ficar em cima elas demoram muito pra responder, não vão atrás de cliente... se eu saio as vendas despencam"
+
+[3] LEAD: hoje tenho 6 meninas aqui no atendimento por diária
+
+mas parece que quanto mais gente eu coloco pior fica, tudo passa por mim igual
+
+tenho que parar de gravar meus conteúdos pra ficar vigiando e cobrando elas... no fim sobra tudo pra mim
+    AGENTE: Colocar mais gente sem fluxo definido só multiplica a cobrança, e parar de gravar conteúdo corta direto o que atrai cliente pra loja.
+    AGENTE: Você já tentou resolver com ferramenta ou com freela? O que aconteceu?
+
+[4] LEAD: nunca contratei ferramenta dessas não, nem entendo muito disso pra falar a verdade
+
+no máximo tentei usar aquelas etiquetas do whatsapp business e colocar mais gente, mas só virou bagunça
+
+o que seria esse fluxo que vc falou? como funciona isso na prática?
+    AGENTE: Na prática, é uma estrutura que o Talles constrói para responder o cliente na hora e organizar o atendimento, sem você ter que ficar vigiando o WhatsApp.
+    AGENTE: Ele entrega isso pronto e rodando no dia a dia da loja, sem você precisar aprender a mexer em ferramenta.
+    AGENTE: Pra eu entender o tamanho do negócio: hoje a loja fatura mais perto de R$ 50 mil, de R$ 100 mil ou acima de R$ 300 mil por mês?
+
+[5] LEAD: passa longe disso kkk
+
+num mês muito bom bate uns 35 mil
+
+o caixa tá bem apertado ultimamente, gasto muito com as diárias das meninas e no fim não sobra quase nada
+    AGENTE: Sendo bem transparente com você: com o faturamento em 35 mil e o caixa apertado pelas diárias das meninas, o Raio-X não é o que vai resolver a sua operação agora.
+    AGENTE: Ele foi construído para negócios com faturamento maior, onde a estrutura já tem outro tamanho e o investimento não pesa no caixa.
+    AGENTE: Obrigado pela honestidade ao abrir os números, Carla. Desejo muito sucesso com a loja e com as gravações!
+    [diretivas] registro:faturamento="num mês muito bom bate uns 35 mil"; registro:triagem=desqualificado; registro:motivo_desqualificacao=faturamento de 35 mil e caixa apertado com diárias; registro:desfecho=desqualificado
+
+[6] LEAD: poxa obrigada pela sinceridade de verdade!
+
+raro ver alguém que não fica só tentando empurrar venda kkk
+
+vou tentar dar uma organizada por aqui primeiro... quem sabe mais pra frente quando a loja crescer! muito sucesso pra vcs aí tb
+    (silêncio: nada enviado; fim da simulação)

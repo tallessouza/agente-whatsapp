@@ -1,0 +1,22 @@
+version: "3.8"
+services:
+  redis:
+    image: redis:7-alpine
+    volumes: [omniroute_redis:/data]
+    networks: [ai_stack]
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    deploy: {placement: {constraints: [node.role == manager]}}
+  omniroute:
+    image: diegosouzapw/omniroute:latest
+    environment: {DATA_DIR: /app/data, PORT: "20128", DASHBOARD_PORT: "20128", API_PORT: "20129", API_HOST: 0.0.0.0, REDIS_URL: redis://redis:6379}
+    volumes: [omniroute_data:/app/data]
+    networks: [ai_stack]
+    ports:
+      - {target: 20128, published: 20128, protocol: tcp, mode: host}
+      - {target: 20129, published: 20129, protocol: tcp, mode: host}
+    deploy: {replicas: 1, placement: {constraints: [node.role == manager]}, restart_policy: {condition: on-failure}}
+volumes:
+  omniroute_data: {name: omniroute_data}
+  omniroute_redis: {name: omniroute_redis}
+networks:
+  ai_stack: {external: true}
