@@ -241,7 +241,8 @@ class Acceptance(unittest.TestCase):
         lean = app.enrichment.for_agent(perfil)
         self.assertEqual(lean["ultimos_posts"][0], {"legenda": "rotina de make", "tipo": "VIDEO"})
 
-    def test_lead_reply_does_not_restart_the_clock(self):
+    def test_lead_reply_restarts_the_clock_after_agent_answers(self):
+        # Decisão do Talles (07/10): se o lead responde e o agente responde de volta, o relógio recomeça.
         anchor = 1790600400.0
         app.tracked.clear()
         app.tracked[81] = {"jid": "j", "last_agent_ts": anchor}
@@ -249,14 +250,10 @@ class Acceptance(unittest.TestCase):
         self.assertEqual(self.run_followups(anchor + 400, state), ["5min"])
         # the lead answered at +20min and the agent replied at +21min
         state = {**state, "last_lead_ts": anchor + 1200, "last_agent_ts": anchor + 1260}
-        # 30min checkpoint (anchor+30min) while they are still talking: skipped, not postponed
-        self.assertEqual(self.run_followups(anchor + 1850, state), [])
-        with closing(app.connection()) as conn:
-            row = conn.execute("SELECT disparar, motivo FROM decisions WHERE conversation_id=81 AND stage='30min'").fetchone()
-        self.assertEqual(row, (0, "conversa em andamento"))
-        # no reset to 5min: the next touch is the 2h one, on the original clock
-        self.assertEqual(self.run_followups(anchor + 3000, state), [])
-        self.assertEqual(self.run_followups(anchor + 7300, state), ["2h"])
+        # new clock from +21min: the 5min touch is due again, then the 30min one
+        self.assertEqual(self.run_followups(anchor + 1260 + 400, state), ["5min"])
+        self.assertEqual(app.sequence(81)[0], anchor + 1260)
+        self.assertEqual(self.run_followups(anchor + 1260 + 1850, state), ["30min"])
 
     def test_lead_spoke_last_waits_without_consuming_the_stage(self):
         anchor = 1790600400.0
@@ -280,6 +277,18 @@ class Acceptance(unittest.TestCase):
         self.assertEqual(self.run_followups(anchor + 90000, state), [])  # ended, no new silence
         later = {**state, "last_lead_ts": anchor + 90000, "last_agent_ts": anchor + 90060}
         self.assertEqual(self.run_followups(anchor + 90060 + 400, later), ["5min"])
+
+    def test_sequence_restarts_when_lead_replies_and_agent_answers(self):
+        anchor = 1790600400.0
+        app.tracked.clear()
+        app.tracked[89] = {"jid": "j", "last_agent_ts": anchor}
+        state = {"last_agent_ts": anchor, "last_lead_ts": anchor - 60, "lead": {"registros": {}}}
+        self.assertEqual(self.run_followups(anchor + 400, state), ["5min"])
+        # o lead respondeu 10 min depois e o agente respondeu de volta: novo relógio na resposta do agente
+        later = {**state, "last_lead_ts": anchor + 600, "last_agent_ts": anchor + 660}
+        self.run_followups(anchor + 700, later)
+        self.assertEqual(app.sequence(89)[0], anchor + 660)
+        self.assertEqual(self.run_followups(anchor + 660 + 400, later), ["5min"])
 
     def test_followup_skips_night_lead_last_paused_and_outcome(self):
         anchor = 1790600400.0
@@ -352,7 +361,8 @@ class OfferRules(unittest.TestCase):
 
     def test_prices_links_secrets_and_promises(self):
         check = lambda text, lead=(): app.oferta.check([text], INSTALADOR, list(lead))
-        self.assertEqual(check("A instalação é R$ 47, pagamento único. A VPS fica em uns R$ 119 por mês."), [])
+        self.assertEqual(check("A instalação é R$ 47, pagamento único. O servidor fica na faixa de R$ 120 a R$ 200 por mês."), [])
+        self.assertIn("valor que não existe na oferta: R$ 119", check("A VPS fica em uns R$ 119 por mês."))  # KVM 8, 07/10
         self.assertEqual(check("Compra por aqui: https://instalador.talles.dev/antes"), [])
         self.assertIn("valor que não existe na oferta: R$ 97", check("Hoje sai por R$ 97."))
         self.assertIn("valor que não existe na oferta: R$ 2.000", check("Uma pessoa custa R$ 2.000"))
@@ -394,10 +404,14 @@ class PromptsMatchTheOffer(unittest.TestCase):
             self.assertNotIn(forbidden, installer)
         # The agent's own example lines pass the deterministic check: before the
         # purchase, everything up to DEPOIS DA COMPRA; after it, the whole path.
+        # (The SOUL is written ABOUT the lead, "o caso dele": the 3rd-person check is for speech, not for the SOUL.)
+        speech = lambda issues: [i for i in issues if "3ª pessoa" not in i]
         before = installer.split("DEPOIS DA COMPRA")[0]
-        self.assertEqual(app.oferta.check([before], INSTALADOR, []), [])
+        self.assertEqual(speech(app.oferta.check([before], INSTALADOR, [])), [])
         bought = {**INSTALADOR, "lead": {"oferta": "instalador", "registros": {"comprou": "sim"}}}
-        self.assertEqual(app.oferta.check([installer], bought, []), [])
+        self.assertEqual(speech(app.oferta.check([installer], bought, [])), [])
+        # Every price line of the SOUL's installer path carries the link in the same block.
+        self.assertFalse(app.oferta.price_without_link([installer.split("O PREÇO (sempre")[1].split("O FECHAMENTO")[0]], INSTALADOR))
 
     def test_prompts_carry_the_offer_rules(self):
         revisor = app.prompt("revisor.md")
@@ -427,12 +441,21 @@ class OfferReview(unittest.TestCase):
         return result, seen
 
     def test_reviewer_gets_the_generated_fact_list_and_the_offer(self):
-        result, seen = self.review(["A instalação é R$ 47, pagamento único."], {"decision": "aprovar"})
+        priced = "A instalação é R$ 47, pagamento único. O caminho é por aqui https://instalador.talles.dev/antes. Consegue fazer hoje?"
+        result, seen = self.review([priced], {"decision": "aprovar"})
         self.assertEqual(result["decision"], "aprovar")
         dados = json.loads(seen[0].split("\nDADOS:\n", 1)[1])
         self.assertEqual(dados["oferta"], "instalador")
         self.assertTrue(any("instalador.talles.dev/antes" in line for line in dados["fatos_oferta"]))
         self.assertEqual(dados["verificacao_automatica"], [])
+
+    def test_price_without_link_gets_the_link_even_when_approved(self):
+        # TSX-78: the old C8 let the price go out alone ("termina no preço"); conversa 16 stopped there.
+        result, seen = self.review(["A instalação é R$ 47, pagamento único."], {"decision": "aprovar"})
+        self.assertEqual(result["decision"], "reescrever")
+        self.assertEqual(result["parts"], ["A instalação é R$ 47, pagamento único.", app.oferta.PRICE_CTA + " [[REGISTRO: link_enviado = sim]]"])
+        dados = json.loads(seen[0].split("\nDADOS:\n", 1)[1])
+        self.assertEqual(dados["verificacao_automatica"], [app.PRICE_WITHOUT_LINK])
 
     def test_hard_violation_is_blocked_even_if_the_model_approves_or_is_down(self):
         for verdict in ({"decision": "aprovar"}, None):

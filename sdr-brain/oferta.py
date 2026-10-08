@@ -76,7 +76,25 @@ CONTACT_PROMISE_RE = re.compile(
 )
 VIDEO_RE = re.compile(r"\b(?:tem|temos|ha|segue|te mando|mando|manda|olha|assiste|assista|veja|ve|gravei|gravado)\b[^.!?\n]{0,25}\bvideos?\b"
                       r"|\bvideos?\b[^.!?\n]{0,25}\b(?:mostra|mostram|ensina|ensinam|explica|explicam)\b")
-GEMINI_DURATION_RE = re.compile(r"\bconta do gemini\b[^.!?\n]{0,60}\b(?:vitalicia|para sempre|pra sempre|nunca expira|nao expira|por tempo indeterminado|por \d+ (?:dias|meses|anos)|(?:um|1) ano)\b")
+GEMINI_DURATION_RE = re.compile(r"\bconta do gemini\b[^.!?\n]{0,60}\b(?:vitalicia|para sempre|pra sempre|nunca expira|nao expira|por tempo indeterminado|por \d+ (?:dias|meses|anos)|(?:um|1) ano\b(?! de tokens))")
+# TSX-77/78 (07/10, conversa 16). The installation price never goes out without
+# the /antes link and a next step; before the link, no way out is offered; the
+# agent talks TO the lead, never about her ("direto pra empresa dela").
+PURCHASE_LINK = "https://instalador.talles.dev/antes"
+PRICE_CTA = f"O caminho é por aqui {PURCHASE_LINK}. Consegue fazer hoje?"
+INSTALL_PRICE_RE = re.compile(r"\br\$ ?47\b,?\s*(?:pagamento )?unico\b"
+                              r"|\b(?:instalacao|time de ia|time)\b[^.!?\n]{0,25}?\b(?:e|custa|sai|fica)\b(?:\s+(?:por|so|de))?\s+r\$ ?47\b")
+OTHER_TIME_RE = re.compile(r"\boutr[oa] (?:momento|hora|horario)\b|\bquando (?:voce |vc )?(?:puder|quiser|tiver (?:um )?tempo)\b"
+                           r"|\bmais (?:pra|para) frente\b|\b(?:olhar|ver|pensar|decidir|deixar)\b[^.!?\n]{0,20}\b(?:depois|mais tarde|com calma)\b")
+# The bridge blocks (and escalates) a reply with an AI name said alone
+# (bridge-src/sdr.py, LEAK_TERMS and OFFER_PHRASES): flag it here so the
+# reviewer rewrites it as the offer phrase instead. Keep both lists in line.
+AI_OFFER_PHRASES = ("conta do gemini", "oauth do gemini", "assinatura do gemini", "assinatura gemini one", "gemini one", "seu gemini",
+                    "sua conta do gemini", "gemini advanced", "plano pago do chatgpt", "plano do chatgpt", "assinatura do chatgpt",
+                    "conta do chatgpt", "conta gratis do chatgpt", "conta gratuita do chatgpt", "seu chatgpt", "chatgpt plus", "chatgpt pro")
+BARE_AI_NAME_RE = re.compile(r"\b(?:chatgpt|gemini|openai|claude|anthropic)\b|\bgpt-")
+THIRD_PERSON_RE = re.compile(r"\b(?:empresa|negocio|caso|servidor|vps|nome|conta|agenda|clientes|alunos|alunas|trabalho|metodo|telegram)\s+(?:dela|dele)\b"
+                             r"|\b(?:do|da|pro|pra|para o|para a) lead\b")
 WHATSAPP_SERVICE_RE = re.compile(r"\b(?:time|instalacao|agentes?|r\$ 47)\b[^.!?\n]{0,60}\b(?:atende|atendem|responde|respondem|atendendo|respondendo)\b[^.!?\n]{0,30}\b(?:seus clientes|os clientes|clientes|whatsapp|whats|zap)\b")
 UPPER_STEP_RE = re.compile(r"\braio[\s-]?x\b|\bcopiar a minha operacao\b")
 # The Raio-X proof (SOUL, OS NÚMEROS DO RAIO-X) is proof only in the Raio-X.
@@ -267,11 +285,43 @@ def _asks_for_secret(folded: str) -> bool:
     return False
 
 
-def check(parts: list[str], context: dict[str, Any], lead_texts: list[str]) -> list[str]:
+def link_sent(context: dict[str, Any], sent_texts: list[str] | tuple = ()) -> bool:
+    """The /antes link already reached the lead (record or an agent message)."""
+    lead = (context or {}).get("lead") or {}
+    record = (lead.get("registros") or {}).get("link_enviado") or lead.get("link_enviado")
+    return fold(str(record or "")).strip() == "sim" or any("instalador.talles.dev/antes" in fold(t) for t in sent_texts or [])
+
+
+def price_without_link(parts: list[str], context: dict[str, Any]) -> bool:
+    """TSX-78: the installation price in a draft without the /antes link (before the purchase)."""
+    if purchased(context) or (current_offer(context) == "raiox" and not disqualified(context)):
+        return False
+    folded = fold("\n".join(re.sub(r"\[\[.*?\]\]", "", part) for part in parts or []))
+    return bool(_affirmed(INSTALL_PRICE_RE, folded)) and "instalador.talles.dev/antes" not in folded
+
+
+def with_price_cta(parts: list[str], toque: bool = False) -> list[str]:
+    """Add the link and the next-step question to a price turn (a new message, or the last one)."""
+    parts = [str(part) for part in parts or []]
+    if not parts:
+        return [PRICE_CTA]
+    if toque or len(parts) >= 3:
+        last = parts[-1]
+        directives = "".join(re.findall(r"\s*\[\[.*?\]\]", last, re.DOTALL))
+        body = re.sub(r"\s*\[\[.*?\]\]", "", last, flags=re.DOTALL).rstrip()
+        # A question that is not the next step gives way to the link's question.
+        if body.endswith("?") and not toque:
+            body = re.split(r"(?<=[.!])\s+(?=[^.!?]*\?$)", body)[0] if re.search(r"[.!]\s", body) else body
+        return parts[:-1] + [f"{body} {PRICE_CTA}".strip() + directives]
+    return parts + [PRICE_CTA]
+
+
+def check(parts: list[str], context: dict[str, Any], lead_texts: list[str], sent_texts: list[str] | tuple = ()) -> list[str]:
     """Hard violations in a draft. Each item says what is wrong, in Portuguese.
 
     Most checks hold for any offer and before the offer is known; prices are
     checked against the offer of the conversation (both offers when unknown).
+    `sent_texts` are the agent's messages the lead already received.
     """
     context = context or {}
     text = "\n".join(parts or [])
@@ -280,6 +330,19 @@ def check(parts: list[str], context: dict[str, Any], lead_texts: list[str]) -> l
     bought = purchased(context)
     lead_folded = fold(" ".join(lead_texts or []) + " " + json.dumps(context.get("lead") or {}, ensure_ascii=False))
     issues = forbidden_hits(folded, lead_folded)
+    for match in THIRD_PERSON_RE.finditer(folded):
+        if match.group(0) not in lead_folded:
+            issues.append(f"fala do lead em 3ª pessoa (\"{match.group(0)}\"): fale com ele, \"você\"/\"seu\"/\"sua\"")
+            break
+    if offer != "raiox" and not bought and "instalador.talles.dev/antes" not in folded and not link_sent(context, sent_texts) \
+            and _affirmed(OTHER_TIME_RE, folded):
+        issues.append("oferece outro momento antes de o link /antes ter saído")
+    allowed_ai = re.sub(r"\s+", " ", folded)
+    for phrase in AI_OFFER_PHRASES:
+        allowed_ai = allowed_ai.replace(phrase, " ")
+    bare = BARE_AI_NAME_RE.search(allowed_ai)
+    if bare:
+        issues.append(f"nome de IA solto (\"{bare.group(0)}\"): diga \"o plano pago do ChatGPT\", \"o ChatGPT Plus\" ou \"a Conta do Gemini\"")
 
     ofertas = context.get("ofertas") or {}
     if offer == "raiox":
@@ -312,7 +375,9 @@ def check(parts: list[str], context: dict[str, Any], lead_texts: list[str]) -> l
     if COPIAR_SWAP_RE.search(folded):
         issues.append("troca a implantação do Raio-X pelo Copiar a minha operação (são dois produtos)")
     if offer != "raiox":
-        if any(int(m.group(1) or 0) < 48 for m in _affirmed(FAST_DEADLINE_RE, folded)):
+        # The link's host ("instalador.talles.dev") is not "instalado amanhã".
+        no_urls = URL_RE.sub(" ", folded)
+        if any(int(m.group(1) or 0) < 48 for m in _affirmed(FAST_DEADLINE_RE, no_urls)):
             issues.append("prazo errado: a instalação é em até 48 h depois do formulário completo")
         if _affirmed(VIDEO_RE, folded):
             issues.append("diz que existe vídeo (hoje não há)")

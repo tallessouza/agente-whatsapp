@@ -1,7 +1,7 @@
 # Ciclo de vida das requisições
 
 > **Para que serve:** seguir cada tipo de requisição do começo ao fim, com os tempos, os timeouts e o que fica gravado em cada lugar, para saber onde uma mensagem está e por que ela não andou.
-> **Data:** 07/10/2026. Retrato de produção (bridge `sdr-v13`, brain `sdr-brain:v3`, OpenReply `sdr-v2`).
+> **Data:** 08/10/2026, ~03:45 (BRT), depois da sessão TSX-77. Retrato de produção (bridge `sdr-v13.1`, brain `sdr-brain:v3.2`, OpenReply `sdr-v2`).
 > **Fontes:** `bridge-src/app.py`, `sdr.py`, `handover.py`, `sdr-brain/app.py`, `crm.py`, `enrichment.py`, `oferta.py`, `prompts/*.md` e `openreply/patches/*`. Cada passo cita a função. O que não está no código aparece como **não verificado**.
 
 Topologia, redes e tabelas estão em [`TOPOLOGIA.md`](TOPOLOGIA.md). As regras de decisão estão em [`ARVORES-DE-DECISAO.md`](ARVORES-DE-DECISAO.md).
@@ -131,7 +131,7 @@ sequenceDiagram
     BR->>SB: POST /review
     SB->>CW: transcrição
     SB->>OR: agy/gemini-3.7-flash-low
-    SB-->>BR: aprovar, reescrever ou bloquear
+    SB-->>BR: aprovar, reescrever ou bloquear (preço sem link ganha o link)
     BR->>BR: perfil_raiox, guardrail e plain_style
     loop cada balão, até 3
         BR->>EVO: presença digitando
@@ -251,7 +251,10 @@ No fim vem um lembrete de sigilo.
 **16. Revisão** (`review_reply`, só se há balões)
 
 - `POST /review` com `draft_parts`, `directives` e `context` (o mesmo de `sdr.context_payload`).
-- `reescrever` troca os balões. Se a reescrita não tem diretivas, valem as originais.
+- No brain (`run_review`), a ordem é: `oferta.check` (agora também com as mensagens que o agente já mandou, para saber se o link `/antes` já saiu) → modelo → `enforce_offer_rules` (violação que sobrevive vira `bloquear`) → `enforce_price_cta` → `reconcile_link_record`.
+  - `enforce_price_cta`: se o texto final tem o preço da instalação sem o link, a decisão vira `reescrever` com "O caminho é por aqui https://instalador.talles.dev/antes. Consegue fazer hoje?" acrescentado (balão novo, ou no fim do 3º balão), mesmo que o modelo tenha aprovado ou esteja fora. Motivo na linha ✏️: "C8: preço sai com o link e o próximo passo".
+  - `reconcile_link_record`: numa reescrita, `link_enviado` acompanha o link que de fato sai. O link entrou e não havia registro: acrescenta `[[REGISTRO: link_enviado = sim]]`. O link saiu da reescrita: tira `link_enviado` (e `preco_dado`, se não sobrou preço). O conjunto corrigido vai no último balão.
+- `reescrever` troca os balões. Se a reescrita não tem diretivas, valem as originais; se tem (inclusive as que o `reconcile_link_record` pôs), valem as dela.
 - `bloquear` gera uma nota privada "Resposta bloqueada pelo supervisor: motivo", troca o texto pela resposta padrão ("Deixa eu confirmar isso direitinho com o Talles…") e acrescenta `escalar`.
 - Erro ou timeout: o rascunho segue como está.
 - **Gravado pelo brain:** a linha "✏️ Resposta reescrita…" ou "⛔ Resposta bloqueada…" no Chatwoot.
@@ -357,6 +360,8 @@ sequenceDiagram
 - O supervisor não roda duas vezes ao mesmo tempo na mesma conversa. A segunda chamada é **descartada**, não fica na fila (`supervisor_running`).
 - Ele lê os registros de `events` (o último valor vence) e monta `oferta.spiced_state`: o que foi registrado, as letras que faltam e `D:tem_vps`/`D:tem_codex` no Instalador.
 - Pede ao modelo `{"guidance","escalate","motivo","frase"}` (`prompts/supervisor.md`).
+  - No Instalador, desde 08/10: se o lead já mostrou intenção e o link não saiu, a orientação é uma só, "mande na mesma resposta um exemplo concreto do nicho dele, o preço com o custo mensal e o link com 'Consegue fazer hoje?'" (se ainda não se sabe o que ele faz, antes vem só essa pergunta). Nunca orienta mais descoberta depois de sinal de compra, nem pergunta de VPS ou Codex como triagem, mesmo com `D:tem_vps`/`D:tem_codex` faltando no `spiced_state`. Descoberta (S e P) só para quem chegou frio.
+  - Reação ou emoji solto não é "sim": orienta retomar a pergunta pendente com o exemplo concreto. No Instalador, nunca orienta "outro momento" antes do link.
 - Se a escalação é por perfil antes da compra no Instalador (`profile_too_early`), ela vira a orientação fixa "registre perfil_raiox = sim e siga a venda".
 - Orientação: vai para `sdr_guidance` na bridge e para o Chatwoot como "🧭". **Ela só entra no turno seguinte do Hermes.**
 - Escalação: `/sdr/escalate` roda a mesma `escalate` da diretiva.
@@ -380,7 +385,7 @@ sequenceDiagram
     SB->>SB: fora de SDR_BUSINESS_START/END? pula a passada
     SB->>BR: GET /sdr/conversations/id
     BR-->>SB: lead, registros, paused, last_lead_ts, last_agent_ts, context
-    SB->>SB: prazo vencido? senão, estágio do silêncio
+    SB->>SB: prazo vencido? senão, estágio do silêncio (recomeça se o lead respondeu e o agente respondeu de volta)
     SB->>CW: transcrição
     SB->>OR: fup.md decide disparar e escreve
     SB->>OR: revisor tipo toque
@@ -405,7 +410,9 @@ sequenceDiagram
    - `deadline_touch` passa ao modelo `stage = prazo`, o passo, `evento_critico` e `tem_vps`/`tem_codex`, e revisa o texto.
    - A decisão é gravada com âncora = o vencimento. `lead_steps.status` vira `cobrado`, haja ou não envio.
    - O toque do prazo tem precedência sobre o silêncio naquela passada.
-5. **Sequência de silêncio.** Só abre quando o agente falou por último (`last_agent_ts > last_lead_ts`) e depois do fim da sequência anterior. A âncora é `last_agent_ts` e **não muda** se o lead responder no meio.
+5. **Sequência de silêncio.** Só abre quando o agente falou por último (`last_agent_ts > last_lead_ts`) e depois do fim da sequência anterior. A âncora é `last_agent_ts`.
+   - **Recomeço** (decisão do Talles de 07/10, brain `v3.2`): se o lead respondeu depois da âncora e o agente respondeu de volta (`last_lead > âncora` e `last_agent > last_lead`), a sequência recomeça com âncora = a última mensagem do agente, e 5min, 30min e 2h valem de novo. Log: "FUP sequence restarted conversation=… (lead replied, agent answered)". Antes, a âncora não mudava.
+   - A resposta do Talles pelo Chatwoot também conta como mensagem do agente (`last_agent_ts`, veja (e)).
 6. **Estágios** (`STAGES`, `POST_PRICE_STAGE`), contados da âncora:
 
    | Estágio | Idade | Condição extra |
@@ -414,17 +421,19 @@ sequenceDiagram
    | `30min` | 1.800 s | idem |
    | `2h` | 7.200 s | idem |
    | `d1` | 86.400 s | — |
-   | `d4` | 345.600 s | só se `preco_dado` estiver registrado. O SOUL só manda registrar `preco_dado` no Raio-X, então no Instalador o `d4` depende de o agente registrar isso por conta própria (**não verificado** se acontece). |
+   | `d4` | 345.600 s | só se `preco_dado` estiver registrado. Desde 08/10 o SOUL manda registrar `preco_dado = sim` também no turno do preço do Instalador, junto de `link_enviado = sim`. Se o link só entrou pelo código (`enforce_price_cta`), o `reconcile_link_record` grava `link_enviado`, mas não `preco_dado`. |
    | `prazo` | data do `proximo_passo_em` | item 4 |
 
    - Só o estágio **mais recente** já alcançado é decidido (`due_stage`). Depois de uma madrugada ou de uma queda, os estágios perdidos são pulados, sem rajada.
    - Cada `(conversa, estágio, âncora)` é decidido uma vez só (`decisions`).
    - Quando o estágio decidido é o último, a sequência termina com o motivo `completa`.
 7. **Lead falou por último:** o brain espera. A resposta é dever do agente.
-8. **Lead respondeu durante a sequência e a conversa tem menos de 30 min de silêncio** (`SDR_QUIET_AFTER_REPLY_SECONDS`): grava "não disparar, conversa em andamento".
+8. **Lead respondeu durante a sequência e a conversa tem menos de 30 min de silêncio** (`SDR_QUIET_AFTER_REPLY_SECONDS`): grava "não disparar, conversa em andamento". Com o recomeço do item 5, esse caso não acontece mais na prática: ou o lead falou por último (item 7), ou a sequência já recomeçou na resposta do agente.
 9. **Modelo.** `prompts/fup.md` recebe o estágio, a oferta, o passo, o evento crítico, a sequência, a transcrição e o estado, e devolve `{disparar, texto, motivo}`.
+   - Instalador, lead que mostrou intenção e o link não saiu: o toque é o link (exemplo do caso, preço com custo mensal, link, "Consegue fazer hoje?"). No `2h`, antes do link, sem saída honesta.
    - Modelo fora do ar grava "não disparar, `review_unavailable`" e aquele estágio está perdido.
-   - Se dispara, `review_touch` passa o texto pelo **mesmo revisor** (`tipo = toque`): `bloquear` vira "não disparar", `reescrever` troca o texto (no máximo 500 caracteres).
+   - Se dispara, `review_touch` passa o texto pelo **mesmo revisor** (`tipo = toque`): `bloquear` vira "não disparar", `reescrever` troca o texto (no máximo 500 caracteres). O `enforce_price_cta` vale também aqui: toque com preço sem link ganha o link no fim da única mensagem.
+   - **Risco lido no código, não reproduzido:** numa reescrita com link, `reconcile_link_record` acrescenta `[[REGISTRO: link_enviado = sim]]` ao texto. O toque não passa por `sdr.parse_reply` na bridge, então a marcação pode chegar ao lead e o registro não é gravado.
 10. **Gravado:** `decisions`; o toque em `sdr_followups` (`POST /sdr/followups`, `send_at = agora`, `after_ts = last_lead_ts`); a linha "⏱️ Toque X agendado: motivo" ou "não enviado: motivo" no Chatwoot.
 
 ### Despacho na bridge (`process_followups_once`)
@@ -444,9 +453,9 @@ Cada toque `pending` com `send_at` vencido passa por estes testes, nesta ordem:
 | Termo interno no texto (`leaked_terms`) | `cancelled`, `guardrail:<termos>` + nota privada 🛑 |
 | Envio | estilo (`plain_style`), "digitando", `send/text`, espelho no Chatwoot, `handover_history` com papel `retomada_enviada`, `status = sent`, e cancela qualquer outro toque pendente da conversa (`superseded`) |
 
-O toque **não** mexe em `last_agent_ts`, então a cadência não recomeça. O Hermes vê o toque no turno seguinte como histórico (`retomada_enviada`). O SOUL diz: "Se no histórico houver uma mensagem de retomada, ela é sua".
+O toque **não** mexe em `last_agent_ts`, então a cadência não recomeça por causa dele. Ela recomeça quando o lead responde e o agente responde de volta (item 5). O Hermes vê o toque no turno seguinte como histórico (`retomada_enviada`). O SOUL diz: "Se no histórico houver uma mensagem de retomada, ela é sua".
 
-**Kiwify.** Depois de `link_enviado = sim`, os estágios `5min`, `30min` e `2h` são do recuperador da Kiwify (decisão de 06/10, comentário em `KIWIFY_COVERED_STAGES`). O FUP só sai no `d1`, no `d4` ou no prazo. `fup.md` proíbe repetir pagamento, Pix ou carrinho.
+**Kiwify.** Depois de `link_enviado = sim`, os estágios `5min`, `30min` e `2h` são do recuperador da Kiwify (decisão de 06/10, comentário em `KIWIFY_COVERED_STAGES`). O FUP só sai no `d1`, no `d4` ou no prazo. `fup.md` proíbe repetir pagamento, Pix ou carrinho. Como desde 08/10 o link sai junto com o primeiro preço do Instalador, isso passa a valer bem mais cedo na conversa.
 
 ---
 
@@ -466,6 +475,7 @@ sequenceDiagram
     BR->>BR: ignora skip_evolution_bridge, privada e repetida
     BR->>BR: handover_history atendente_humano
     BR->>CW: pausa com revision mais 1 e label hermes-pausado
+    BR->>BR: last_agent_ts = agora (touch_activity)
     BR->>EVO: envia texto, mídia, localização, enquete ou reação
     EVO-->>L: mensagem do Talles
     L->>EVO: responde
@@ -484,10 +494,11 @@ sequenceDiagram
 - **Resposta pelo Chatwoot** (`chatwoot_webhook`).
   - Só conta `message_created` com tipo `outgoing`.
   - Mensagens com `skip_evolution_bridge`, que são as que a própria bridge escreveu, são ignoradas. Também são ignoradas as notas privadas e os ids repetidos (`chatwoot_deliveries`).
-  - Para o resto: `handover.record("atendente_humano")`, `handover.pause` e o envio à Evolution (anexos baixados do Chatwoot, ou localização, enquete e reação nativas).
+  - Para o resto: `handover.record("atendente_humano")`, `handover.pause`, `sdr.touch_activity(agent=True)` e o envio à Evolution (anexos baixados do Chatwoot, ou localização, enquete e reação nativas).
+  - `touch_activity` (novo na `sdr-v13.1`, 07/10, conversa 17): a resposta humana passa a contar como a última mensagem do nosso lado (`last_agent_ts`). A intenção é que, quando o Talles tira a pausa, o follow-up recomece a partir da resposta dele. Ressalva lida no código: o brain encerra a sequência ativa (`pausada`) na passada seguinte à pausa, e uma sequência nova só abre com `last_agent_ts` posterior a esse fim; uma resposta única do Talles pode não reabrir a cadência, só uma mensagem dele escrita depois disso.
 - **Resposta pelo celular ou outro aparelho ligado à conta.**
   - Chega como `MESSAGE` com `fromMe`, sem id em `bridge_outbound`.
-  - Gera `handover.record("atendente_humano")` e `handover.pause`, e a mensagem é espelhada como `outgoing`.
+  - Gera `handover.record("atendente_humano")` e `handover.pause`, e a mensagem é espelhada como `outgoing`. Este caminho **não** atualiza `last_agent_ts`.
 - **Escalação** (`[[ESCALAR]]`, bloqueio do revisor, guardrail, `/sdr/escalate`), em `escalate`.
   - Se já está pausada, não faz nada (idempotente).
   - Senão grava a nota privada "🔔 ESCALAÇÃO DO AGENTE SDR" com o motivo e a frase, aplica a label `sdr-escalado`, pausa e manda o alerta ao WhatsApp do dono (`SDR_NOTIFY_NUMBER`), com o link da conversa.
@@ -500,6 +511,7 @@ sequenceDiagram
 - Cada lote do lead vai para `handover_history` (`cliente`). Não há turno do Hermes.
 - `queue_hermes_turn` continua atualizando `last_lead_ts` e cancelando toques.
 - O FUP encerra a sequência (`pausada`) e a bridge cancela toques com o motivo `paused`.
+- Cada resposta do Talles pelo Chatwoot atualiza `last_agent_ts`.
 
 **Como volta**
 
@@ -555,12 +567,12 @@ O comando só vale quando o dono **manda para o número do agente** (`fromMe` fa
 
 1. **O lead escreveu e nada aconteceu.** Siga a ordem: a mensagem está no Chatwoot? Se não está, olhe a Evolution e o webhook (`docker service logs integration_bridge | grep "event=MESSAGE"`). Se está, a conversa tem `hermes-pausado`? Se não tem, procure "Hermes/Evolution batch reply failed" ou "429" no log da bridge.
 2. **A resposta demorou.** O mínimo é 10 s (acúmulo) + o turno do Hermes + até 22 s de revisor + 1,5 a 6 s por balão. Se no log aparece "concurrent-run cap (429)", é fila.
-3. **A resposta saiu diferente do que o Hermes escreveu.** Olhe `sdr_corrections` e as linhas ✏️/⛔ e as notas 🛑 no Chatwoot.
+3. **A resposta saiu diferente do que o Hermes escreveu.** Olhe `sdr_corrections` e as linhas ✏️/⛔ e as notas 🛑 no Chatwoot. Um balão "O caminho é por aqui https://instalador.talles.dev/antes. Consegue fazer hoje?" que o Hermes não escreveu é do `enforce_price_cta`.
 4. **Não houve toque.** Cheque, nesta ordem:
    - a conversa está em `tracked` no brain?
    - quem falou por último?
-   - `decisions` daquela âncora;
-   - `link_enviado = sim` (os três primeiros estágios são da Kiwify);
+   - `decisions` daquela âncora (a âncora muda quando a sequência recomeça; veja `sequences.anchor` e o log "FUP sequence restarted");
+   - `link_enviado = sim` (os três primeiros estágios são da Kiwify; no Instalador o link sai junto com o primeiro preço);
    - a janela de horário dos dois serviços;
    - `sdr_followups.reason` na bridge.
 5. **Saíram toques demais ou repetidos.** Veja `outbox` (Evolution oscilou?) e `sdr_followups` com `status = sent` no dia (o teto é 4).

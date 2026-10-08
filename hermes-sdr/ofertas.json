@@ -1,6 +1,6 @@
 {
-  "fonte": "OFERTA-ATUAL.md de 06/10/2026 (as seções 9 e 9.1 vencem) para o instalador; SOUL v12 e a seção 9.1 para o raiox",
-  "atualizado_em": "2026-10-06T22:30:00-03:00",
+  "fonte": "OFERTA-ATUAL.md de 06/10/2026 (as seções 9 e 9.1 vencem) para o instalador, com as decisões do Talles de 07/10 (TSX-77: servidor como valor, KVM 8, R$ 120 a R$ 200/mês; Conta do Gemini = \"1 Ano de Tokens\" na Kiwify); SOUL v12 e a seção 9.1 para o raiox",
+  "atualizado_em": "2026-10-07T23:30:00-03:00",
   "instalador": {
     "nome": "Instalação do Time de IA",
     "preco": "R$ 47",
@@ -10,14 +10,14 @@
     "o_que_o_time_faz": "chega pronto no Telegram do dono; conversa com ele, escreve, organiza e lembra por ele (não fala com os clientes dele); depois do \"Pronto.\" faz 15 perguntas e, no dia seguinte, manda a primeira Pauta do dia",
     "o_que_nao_faz": "não atende os clientes dele no WhatsApp: isso é o Atendimento no WhatsApp (R$ 3.000), produto separado, que não vem nos R$ 47",
     "pre_requisitos": {
-      "vps": "VPS com Ubuntu e 8 GB de RAM, referência Hostinger KVM2, cerca de R$ 119/mês, paga direto à empresa da VPS, no nome dele. Obrigatória para todos.",
+      "vps": "servidor (VPS) no nome dele, contratado onde ele quiser (o Talles indica a Hostinger; por exemplo o KVM 8 da Hostinger), na faixa de R$ 120 a R$ 200 por mês, pago direto à empresa do servidor. Fica fora do computador dele: o time trabalha mesmo com o computador desligado, e dá para ter vários agentes nele; a instalação deixa a estrutura pronta dentro dele. Obrigatório para todos. A página /antes mostra o que contratar.",
       "ia": "assinatura do Codex (plano pago do ChatGPT, Plus ou maior; conta grátis não funciona; referência R$ 100/mês) OU a Conta do Gemini comprada como bump na compra da instalação, que substitui o Codex só nesse caso"
     },
     "custo_mensal": {
-      "com_codex": "por fora, a VPS (cerca de R$ 119/mês) e o Codex (cerca de R$ 100/mês), pagos direto a eles",
-      "com_conta_do_gemini": "por mês, só a VPS (cerca de R$ 119/mês); a Conta do Gemini é R$ 100 uma vez, na compra; não citar o Codex"
+      "com_codex": "por fora, o servidor (na faixa de R$ 120 a R$ 200 por mês) e o Codex (cerca de R$ 100/mês), pagos direto a eles",
+      "com_conta_do_gemini": "por mês, só o servidor (na faixa de R$ 120 a R$ 200 por mês); a Conta do Gemini é R$ 100 uma vez, na compra; não citar o Codex"
     },
-    "como_contratar": "caminho curto, sem vídeo: VPS com Ubuntu e 8 GB de RAM (por exemplo, a KVM2 da Hostinger); plano pago do ChatGPT, Plus ou maior, ou a Conta do Gemini junto na compra; se a pessoa travar, o agente passa ao Talles",
+    "como_contratar": "caminho curto, sem vídeo: um servidor (VPS) no nome dele, onde quiser (por exemplo o KVM 8 da Hostinger, na faixa de R$ 120 a R$ 200 por mês), e a página https://instalador.talles.dev/antes mostra o que conferir; plano pago do ChatGPT, Plus ou maior, ou a Conta do Gemini junto na compra; se a pessoa travar, o agente passa ao Talles",
     "prazo": "até 48 h depois do formulário completo, por ordem de chegada; pode sair antes, sem prometer",
     "capacidade_por_dia": 15,
     "capacidade_regra": "15 instalações por dia; a 16ª fica para o dia seguinte",
@@ -36,6 +36,7 @@
         "preco": "R$ 100",
         "cobranca": "única",
         "onde": "bump do checkout",
+        "nome_no_checkout": "1 Ano de Tokens",
         "nota": "substitui o Codex; oferecida enquanto disponível; o agente não promete por quanto tempo a conta dura",
         "link_avulso": "existe para quem já comprou a instalação sem a Conta do Gemini; o agente não tem esse link: passa ao Talles"
       },
@@ -97,7 +98,8 @@
       "senha, token e IP só pelo formulário cifrado, nunca na conversa",
       "sem desconto, sem promessa de faturamento, sem contador ou escassez falsos",
       "não dizer que existe vídeo; hoje não há vídeos nem prova de instalação para mostrar",
-      "não prometer nem agendar contato; o próximo passo vai para o registro"
+      "não prometer nem agendar contato; o próximo passo vai para o registro",
+      "o preço da instalação sai sempre com o link https://instalador.talles.dev/antes e um próximo passo; antes de o link sair, nunca oferecer \"outro momento\""
     ]
   },
   "raiox": {

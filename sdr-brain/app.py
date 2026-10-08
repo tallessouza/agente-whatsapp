@@ -517,9 +517,9 @@ async def deadline_touch(conversation_id: int, state: dict[str, Any], step: dict
 async def followup_once(now: float | None = None) -> None:
     """One pass of the follow-up cadence.
 
-    A sequence starts when the lead goes silent after an agent message and
-    keeps its clock: checkpoints count from that anchor even if the lead
-    replies in between. A checkpoint is skipped (not postponed) while the
+    A sequence starts when the lead goes silent after an agent message. If the
+    lead replies and the agent answers back, the clock restarts at the agent's
+    last message (07/10). A checkpoint is skipped (not postponed) while the
     conversation is going on, and the sequence ends at its last checkpoint,
     on an outcome, or when the conversation is paused.
     """
@@ -564,6 +564,12 @@ async def followup_once(now: float | None = None) -> None:
             if not last_agent or last_lead >= last_agent or last_agent <= previous_end:
                 continue
             start_sequence(conversation_id, last_agent)
+            seq = (last_agent, None)
+        elif last_lead > seq[0] and last_agent > last_lead:
+            # O lead respondeu durante a sequência e o agente respondeu de volta: o relógio recomeça
+            # na última mensagem do agente (decisão do Talles, 07/10), para 5min/30min/2h valerem de novo.
+            start_sequence(conversation_id, last_agent)
+            LOGGER.warning("FUP sequence restarted conversation=%s (lead replied, agent answered)", conversation_id)
             seq = (last_agent, None)
         anchor = seq[0]
         stages = STAGES + ([POST_PRICE_STAGE] if records.get("preco_dado") else [])
@@ -687,14 +693,94 @@ async def run_review(payload: dict[str, Any]) -> dict[str, Any]:
         context = {**context, "oferta": recorded}  # the draft itself discovered the offer
     draft_parts = [str(part) for part in draft] if isinstance(draft, list) else []
     lead_texts = [str(payload.get("lead_message") or "")] + [str(row.get("texto", "")) for row in transcript if isinstance(row, dict) and row.get("autor") == "lead"]
-    issues = oferta.check(draft_parts, context, lead_texts)
+    sent_texts = [str(row.get("texto", "")) for row in transcript if isinstance(row, dict) and row.get("autor") == "agente"]
+    issues = oferta.check(draft_parts, context, lead_texts, sent_texts)
+    cta = [PRICE_WITHOUT_LINK] if oferta.price_without_link(draft_parts, context) else []
     dados = {**payload, "transcript": transcript, "oferta": oferta.current_offer(context) or "desconhecida",
-             "fatos_oferta": oferta.facts(context), "verificacao_automatica": issues}
+             "fatos_oferta": oferta.facts(context), "verificacao_automatica": issues + cta}
     # One slower attempt fits the bridge's wait; a retry would land after it gave up.
     result = await ask_llm(prompt("revisor.md") + "\nDADOS:\n" + json.dumps(dados, ensure_ascii=False),
                            attempts=1, timeout=float(os.getenv("SDR_REVIEW_LLM_TIMEOUT", "18")))
     decision = judged_review(result, draft)
-    return enforce_offer_rules(decision, issues, context, lead_texts)
+    decision = enforce_offer_rules(decision, issues, context, lead_texts, sent_texts)
+    decision = enforce_price_cta(decision, draft_parts, context, toque=payload.get("tipo") == "toque")
+    return reconcile_link_record(decision, payload.get("directives"))
+
+
+DIRECTIVE_RE = re.compile(r"\[\[\s*([A-Za-zÇÃÕÁÉÍÓÚçãõáéíóú_]+)\s*(?::\s*(.*?))?\s*\]\]", re.S)
+
+
+def _parse_directives(text: str) -> list[dict[str, Any]]:
+    """The bridge's directive format (bridge-src/sdr.py parse_reply), for the ones a rewrite carries."""
+    found = []
+    for name, arg in DIRECTIVE_RE.findall(text or ""):
+        name, arg = name.upper(), (arg or "").strip()
+        if name == "REGISTRO" and "=" in arg:
+            campo, _, valor = arg.partition("=")
+            found.append({"type": "registro", "campo": campo.strip().lower(), "valor": valor.strip()})
+        elif name == "ESCALAR":
+            motivo, _, frase = arg.partition("|")
+            found.append({"type": "escalar", "motivo": motivo.strip(), "frase": frase.strip()})
+        elif name == "FOTO" and arg:
+            found.append({"type": "foto", "nome": arg})
+    return found
+
+
+def _render_directive(d: dict[str, Any]) -> str:
+    if d.get("type") == "registro":
+        return f"[[REGISTRO: {d.get('campo')} = {d.get('valor')}]]"
+    if d.get("type") == "escalar":
+        return f"[[ESCALAR: {d.get('motivo', '')} | {d.get('frase', '')}]]"
+    if d.get("type") == "foto":
+        return f"[[FOTO: {d.get('nome')}]]"
+    return ""
+
+
+def reconcile_link_record(decision: dict[str, Any], directives: Any) -> dict[str, Any]:
+    """link_enviado follows what the lead really receives.
+
+    The bridge keeps the draft's directives when a rewrite carries none, so a
+    rewrite that drops the link would still record link_enviado = sim (and the
+    link the code adds would not be recorded). When that happens, the corrected
+    set of directives goes in the last part, which the bridge then uses.
+    """
+    if decision.get("decision") != "reescrever" or not decision.get("parts"):
+        return decision
+    parts = [str(p) for p in decision["parts"]]
+    carried = [d for p in parts for d in _parse_directives(p)]
+    base = carried or [d for d in (directives or []) if isinstance(d, dict)]
+    text = oferta.fold(" ".join(re.sub(r"\[\[.*?\]\]", "", p, flags=re.S) for p in parts))
+    has_link = "instalador.talles.dev/antes" in text
+    is_link = lambda d: d.get("type") == "registro" and d.get("campo") == "link_enviado"
+    is_price = lambda d: d.get("type") == "registro" and d.get("campo") == "preco_dado"
+    fixed = list(base)
+    if has_link and not any(is_link(d) for d in base):
+        fixed.append({"type": "registro", "campo": "link_enviado", "valor": "sim"})
+    if not has_link and any(is_link(d) for d in base):
+        fixed = [d for d in fixed if not is_link(d) and not (is_price(d) and "r$" not in text)]
+    if fixed == base:
+        return decision
+    clean = [re.sub(r"\s*\[\[.*?\]\]", "", p, flags=re.S).strip() for p in parts]
+    clean[-1] = (clean[-1] + " " + " ".join(filter(None, map(_render_directive, fixed)))).strip()
+    return {**decision, "parts": clean}
+
+
+PRICE_WITHOUT_LINK = "preço da instalação sem o link https://instalador.talles.dev/antes e a pergunta do próximo passo (C8)"
+
+
+def enforce_price_cta(decision: dict[str, Any], draft_parts: list[str], context: dict[str, Any], toque: bool = False) -> dict[str, Any]:
+    """TSX-78: the installation price never goes out without the /antes link and a next step.
+
+    Whatever the reviewer decided (or if it was down), a price turn without the
+    link gets the link and "Consegue fazer hoje?" added deterministically.
+    """
+    if decision["decision"] == "bloquear":
+        return decision
+    parts = decision["parts"] if decision["decision"] == "reescrever" else draft_parts
+    if not oferta.price_without_link(parts, context):
+        return decision
+    motivo = "; ".join(m for m in (decision.get("motivo") if decision["decision"] == "reescrever" else "", "C8: preço sai com o link e o próximo passo") if m)
+    return {"decision": "reescrever", "parts": oferta.with_price_cta(parts, toque=toque), "motivo": motivo}
 
 
 def judged_review(result: Any, draft: Any) -> dict[str, Any]:
@@ -709,12 +795,13 @@ def judged_review(result: Any, draft: Any) -> dict[str, Any]:
     return {"decision": result["decision"], **({"motivo": str(result.get("motivo", ""))} if result["decision"] == "bloquear" else {})}
 
 
-def enforce_offer_rules(decision: dict[str, Any], issues: list[str], context: dict[str, Any], lead_texts: list[str]) -> dict[str, Any]:
+def enforce_offer_rules(decision: dict[str, Any], issues: list[str], context: dict[str, Any], lead_texts: list[str],
+                        sent_texts: list[str] | tuple = ()) -> dict[str, Any]:
     """Hard offer violations never go out, whatever the model decided or if it was down."""
     if decision["decision"] == "bloquear" or not issues:
         return decision
     if decision["decision"] == "reescrever":
-        issues = oferta.check([re.sub(r"\[\[.*?\]\]", "", part) for part in decision["parts"]], context, lead_texts)
+        issues = oferta.check([re.sub(r"\[\[.*?\]\]", "", part) for part in decision["parts"]], context, lead_texts, sent_texts)
         if not issues:
             return decision
     return {"decision": "bloquear", "motivo": "verificação automática: " + "; ".join(issues)}

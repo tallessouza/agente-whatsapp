@@ -1,7 +1,7 @@
 # Topologia do agente de vendas no WhatsApp
 
 > **Para que serve:** mostrar o que roda, onde, em qual rede e porta, quem fala com quem, onde mora cada estado e o que para quando um serviço cai.
-> **Data:** 07/10/2026. Retrato de produção da VM1 (bridge `sdr-v13`, brain `sdr-brain:v3`, OpenReply `sdr-v2`, sessões `wa:v13:`).
+> **Data:** 08/10/2026, ~03:45 (BRT), depois da sessão TSX-77. Retrato de produção da VM1 (bridge `sdr-v13.1`, brain `sdr-brain:v3.2`, OpenReply `sdr-v2`, sessões `wa:v13:`). Serviços, redes e volumes vêm do levantamento de 07/10; em 08/10 mudaram só as imagens da bridge e do brain.
 > **Fontes:** o código deste repositório, `docs/_fatos-vm.md` (coletado em 07/10 às 05:20Z), `stacks/*.yml` e, como referência, `../MAPA-INTEGRACOES.md`. O que não deu para confirmar no código está marcado como **não verificado**.
 
 Este documento não contém valor de segredo. As variáveis aparecem só pelo nome.
@@ -103,15 +103,15 @@ Os dados vêm de `docs/_fatos-vm.md`. A coluna "Papel" foi confirmada no código
 |---|---|---|---|---|
 | `evogo_evolution` | `evoapicloud/evolution-go:latest` | ai_stack | 4000 | Transporte do WhatsApp, instância `whatsapp` (`EVOLUTION_INSTANCE` em `stacks/bridge-stack.yml`). Uma réplica só: duas disputariam a sessão (MAPA, item 5). |
 | `evogo_postgres` | `postgres:16` | ai_stack | não | Banco da Evolution: autenticação e mensagens (`DATABASE_SAVE_MESSAGES: "true"` em `stacks/evogo-stack.yml`). |
-| `integration_bridge` | `evolution-chatwoot-bridge:sdr-v13` | ai_stack | não (escuta 8080 só na overlay, `bridge-src/Dockerfile`) | FastAPI que liga Evolution, Chatwoot, Hermes e sdr-brain (`bridge-src/app.py`, `sdr.py`, `handover.py`). |
+| `integration_bridge` | `evolution-chatwoot-bridge:sdr-v13.1` | ai_stack | não (escuta 8080 só na overlay, `bridge-src/Dockerfile`) | FastAPI que liga Evolution, Chatwoot, Hermes e sdr-brain (`bridge-src/app.py`, `sdr.py`, `handover.py`). |
 | `chatwoot_rails` | `chatwoot/chatwoot:v4.18.0` | ai_stack | 3001 para 3000 | Inbox humana, histórico, labels, atributos. Conta 1, inbox 1 (`CHATWOOT_INBOX_ID` padrão `"1"` em `app.py`). |
 | `chatwoot_sidekiq` | `chatwoot/chatwoot:v4.18.0` | ai_stack | não | Jobs do Chatwoot. Que é ele quem dispara o webhook do inbox para a bridge: **não verificado** (é o comportamento padrão do Chatwoot). |
 | `chatwoot_postgres` / `chatwoot_redis` | `pgvector/pgvector:pg16` / `redis:7-alpine` | ai_stack | não | Banco e fila do Chatwoot. |
 | `chatwoot_prepare` | `chatwoot/chatwoot:v4.18.0` | ai_stack | não | Roda `db:chatwoot_prepare` e sai. 0/1 é o estado normal. |
 | `hermes_hermes` | `hermes-agent:latest` | ai_stack | **8642** | O agente. API compatível com OpenAI em `/v1/chat/completions` (`stacks/hermes-stack.yml`: `API_SERVER_ENABLED`, `API_SERVER_PORT`). |
 | `hermes_teste_hermes` | `hermes-agent:latest` | ai_stack | não | Hermes de teste para simulação, com volume próprio (`agente-sdr/DEPLOY.md`, passo 1). |
-| `sdr_brain` | `sdr-brain:v3` | ai_stack, openreply_internal | não | Revisor, supervisor, enriquecimento, `lead_steps` e follow-up (`sdr-brain/app.py`). Escuta 8090 (`sdr-brain/Dockerfile`). |
-| `sdr_teste_brain` | `sdr-brain:v3` | ai_stack | não | Brain de teste. Sem acesso ao OpenReply. |
+| `sdr_brain` | `sdr-brain:v3.2` | ai_stack, openreply_internal | não | Revisor, supervisor, enriquecimento, `lead_steps` e follow-up (`sdr-brain/app.py`). Escuta 8090 (`sdr-brain/Dockerfile`). |
+| `sdr_teste_brain` | `sdr-brain:v3.2` | ai_stack | não | Brain de teste. Sem acesso ao OpenReply. |
 | `omniroute_omniroute` | `diegosouzapw/omniroute:latest` | ai_stack | 20128 (painel), 20129 (API) | Roteador de LLM, usado pelo Hermes e pelo brain. As contas Antigravity com OAuth estão descritas em `hermes-sdr/ARQUITETURA.md`, "LLM e cota" (não aparecem no código). |
 | `omniroute_redis` | `redis:7-alpine` | ai_stack | não | Estado do OmniRoute. |
 | `openreply_web` | `openreply:sdr-v2` | openreply_internal, openreply_public | 3000 | Painel, webhook da Meta e rota de clique `/r/[slug]` (`openreply/patches/0001`, `0002`). |
@@ -231,7 +231,7 @@ Todas as tabelas são criadas sob demanda em `app.db()`, `handover.connect()` e 
 | `sdr_guidance` | `sdr.connect` | `id` | orientações do supervisor | `consumed` preenchido depois de um turno entregue. |
 | `sdr_profiles` | `sdr.connect` | `conversation` | a `ficha` do Instagram que o brain manda | Substituída a cada enriquecimento. |
 | `sdr_followups` | `sdr.connect` | `id` | toques: `send_at`, `text`, `motivo`, `after_ts`, `stage`, `status` (`pending`, `sent`, `cancelled`), `reason`, `sent_at` | O despacho (30 s) decide. |
-| `sdr_activity` | `sdr.connect` | `conversation` | `last_lead_ts`, `last_agent_ts` | Atualizada a cada mensagem do lead e a cada balão do agente. Toque não mexe. |
+| `sdr_activity` | `sdr.connect` | `conversation` | `last_lead_ts`, `last_agent_ts` | Atualizada a cada mensagem do lead, a cada balão do agente e, desde a `sdr-v13.1`, a cada resposta do Talles pelo Chatwoot (`last_agent_ts`). Toque não mexe. |
 | `sdr_corrections` | `sdr.connect` | `id` | `draft` (o que o Hermes escreveu) e `sent` (o que saiu) | As 3 últimas vão no contexto (`CORRECTIONS_IN_CONTEXT`). |
 | `sdr_owner_test` | `sdr.connect` | `jid` | `active`, `run`, `started` do modo teste do dono | `#teste` incrementa `run`, `#fim` desativa. |
 
@@ -241,7 +241,7 @@ Todas as tabelas são criadas sob demanda em `app.db()`, `handover.connect()` e 
 |---|---|---|
 | `events` | `app.connection` | Todo evento recebido (`exchange`, `lead`, `record`) com o payload JSON. É de onde o supervisor tira os registros (`conversation_records`). |
 | `tracked` | `app.connection` | Conversas acompanhadas pelo FUP (`jid`, `last_agent_ts`, `source_id`). Recarregada no boot (`load_tracked`). Some quando a bridge responde 404 (`forget_conversation`). |
-| `sequences` | `app.connection` | Sequência de silêncio por conversa: `anchor` (o `last_agent_ts` que abriu), `ended_at`, `end_reason` (`completa`, `pausada`, `desfecho`). |
+| `sequences` | `app.connection` | Sequência de silêncio por conversa: `anchor` (o `last_agent_ts` que abriu, ou o da resposta do agente quando a sequência recomeça porque o lead respondeu e o agente respondeu de volta), `ended_at`, `end_reason` (`completa`, `pausada`, `desfecho`). |
 | `decisions` | `app.connection` | Uma linha por `(conversation_id, stage, anchor)`: `disparar`, `motivo`, `ts`. É o que impede decidir o mesmo estágio duas vezes. Uma tabela antiga pode virar `decisions_legacy`. |
 | `lead_steps` | `app.connection` | Uma linha por conversa: `oferta`, `etapa_spiced`, `proximo_passo`, `proximo_passo_em`, `status` (`pendente`, `cobrado`, `encerrado`), `atualizado_em`. |
 | `ig_matches` | `enrichment.ensure_tables` | Identidade do Instagram por conversa: `username`, `status`, `method`, `candidates`. |
@@ -315,7 +315,7 @@ Fonte: `sdr-brain/app.py`, `enrichment.py`, `crm.py`, `stacks/sdr-stack.yml`, `s
 | `CHATWOOT_URL`, `CHATWOOT_ACCOUNT_ID`, `CHATWOOT_API_TOKEN` | transcrição, atividades e atributos | interno, vazio, vazio | conta `"1"`, token obrigatório |
 | `SDR_BUSINESS_START_HOUR`, `SDR_BUSINESS_END_HOUR` | janela em que o laço de FUP roda | 9 e 20 | `0` e `24` por padrão do stack |
 | `SDR_TIMEZONE` | fuso | `America/Sao_Paulo` | não definido |
-| `SDR_QUIET_AFTER_REPLY_SECONDS` | silêncio exigido depois de o lead responder no meio da sequência | 1800 | não definido |
+| `SDR_QUIET_AFTER_REPLY_SECONDS` | silêncio exigido depois de o lead responder no meio da sequência. Com o recomeço da sequência (`v3.2`), na prática não dispara mais | 1800 | não definido |
 | `SDR_STEP_DUE_HOUR` | hora em que vence um `proximo_passo_em` sem hora | 10 | não definido |
 | `SDR_STEP_ACTIVITY_DELAY` | espera para juntar `proximo_passo` e `proximo_passo_em` na linha 📌 | 3 s | não definido |
 | `OPENREPLY_DSN` | Postgres do OpenReply, somente leitura (vazio desliga) | vazio | `${OPENREPLY_DSN:-}` |
@@ -323,7 +323,7 @@ Fonte: `sdr-brain/app.py`, `enrichment.py`, `crm.py`, `stacks/sdr-stack.yml`, `s
 | `APIFY_TOKEN`, `APIFY_PROFILE_ACTOR` | fallback de perfil (vazio desliga) | vazio, `apify~instagram-profile-scraper` | `${APIFY_TOKEN:-}` |
 | `SDR_MATCH_WINDOW_SECONDS` | janela de cliques e DMs antes da 1ª mensagem | 1800 | não definido |
 | `SDR_PROFILE_CACHE_SECONDS` | cache de perfil | 7 dias | não definido |
-| `SDR_BRAIN_IMAGE_TAG` | tag da imagem no deploy | `v3` | o mesmo |
+| `SDR_BRAIN_IMAGE_TAG` | tag da imagem no deploy | `v3` | o mesmo no arquivo; o serviço roda `v3.2` |
 
 `agente-sdr` e o MAPA (item 16) registram um cuidado: um `docker stack deploy` do `sdr` feito sem exportar os segredos apaga o `META_GRAPH_TOKEN` e o `OPENREPLY_DSN` do serviço.
 
@@ -366,7 +366,7 @@ Fonte: `sdr-brain/app.py`, `enrichment.py`, `crm.py`, `stacks/sdr-stack.yml`, `s
 ## O que verificar quando der problema
 
 1. **Os serviços estão de pé?** `sudo docker service ls`: tudo 1/1, exceto `chatwoot_prepare` e `openreply_migrate`, que ficam 0/1. Depois, a saúde interna: `GET integration_bridge:8080/health` (mostra `outbox_pending`) e `GET sdr_brain:8090/health`, rodando um contêiner na `ai_stack`.
-2. **Qual imagem e qual prefixo estão no ar?** Confira se a bridge é `sdr-v13` com `HERMES_SESSION_PREFIX=wa:v13:` (`docker service inspect`). Um SOUL novo com o prefixo antigo não vale para as sessões existentes.
+2. **Qual imagem e qual prefixo estão no ar?** Confira se a bridge é `sdr-v13.1` (e o brain `sdr-brain:v3.2`) com `HERMES_SESSION_PREFIX=wa:v13:` (`docker service inspect`). Um SOUL novo com o prefixo antigo não vale para as sessões existentes.
 3. **As variáveis críticas da bridge estão definidas?** `SDR_BRAIN_URL` (sem ela, nada de revisão nem de toques), `HERMES_API_KEY` (sem ela, ninguém responde), `CHATWOOT_APP_TOKEN` (sem ela, nada de pausa nem de label) e a janela `SDR_BUSINESS_*`, cujo valor real está em conflito entre as fontes.
 4. **A outbox está crescendo?** `outbox_pending` no `/health`. Se crescer, a Evolution está fora ou rejeitando, e é preciso olhar `last_error` na tabela `outbox`.
 5. **O disco da bridge:** `/data/media` e as tabelas `event_history`, `bridge_outbound` e `media_history` não têm limpeza no código.

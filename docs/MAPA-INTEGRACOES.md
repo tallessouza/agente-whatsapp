@@ -1,6 +1,6 @@
 # Mapa de integrações · Time de IA Instalado + agente de vendas
 
-Levantado em 07/10/2026 (madrugada), lendo o sistema no ar: serviços da VM1, variáveis (só nomes), rotas, webhooks do Chatwoot, site e Kiwify. Serve para achar rápido onde quebrou durante a produção. Nenhum segredo aqui: credencial fica no Bitwarden (org TSX, collection Recovery) ou no ambiente do serviço.
+Levantado em 07/10/2026 (madrugada), lendo o sistema no ar: serviços da VM1, variáveis (só nomes), rotas, webhooks do Chatwoot, site e Kiwify. Atualizado em 08/10/2026, ~03:45 (BRT), com o que a sessão TSX-77 pôs no ar (bridge `sdr-v13.1`, brain `sdr-brain:v3.2`, SOUL e `ofertas.json` novos; seções 5, 6 e 7). Serve para achar rápido onde quebrou durante a produção. Nenhum segredo aqui: credencial fica no Bitwarden (org TSX, collection Recovery) ou no ambiente do serviço.
 
 **Onde mexer:** VM1 = `ssh ubuntu@100.83.163.117` (ou pelo Orca, worktree do portainer). Fonte do agente na VM: `~/orca/projects/portainer-install/` (bridge-src, sdr-brain, hermes-sdr). Cópia de trabalho com histórico: `C:\Users\talle\orca\agente-sdr`. App: `C:\Users\talle\orca\instalador` (GitHub tallessouza/instalador → Vercel).
 
@@ -15,9 +15,9 @@ CAMINHO A · Instagram → WhatsApp (agente)
         └► DM no Instagram com link rastreado  https://openreply.talles.dev/r/<slug>?t=...
              └► redireciona para wa.me/554825000259?text="E aí! Sou o @{username} e quero saber mais sobre o Raio-X"
  WhatsApp do lead ─► número 554825000259 ─► Evolution Go (evogo_evolution)
-   └► webhook POST http://bridge:8080/evolution/webhook  (integration_bridge, sdr-v13)
+   └► webhook POST http://bridge:8080/evolution/webhook  (integration_bridge, sdr-v13.1)
         ├► Chatwoot: espelha a conversa (inbox 1 "WhatsApp Evolution", canal API)
-        ├► espera 10 s de silêncio (junta mensagens) ─► fila de 8 turnos ─► Hermes (hermes_hermes:8642, SOUL v13)
+        ├► espera 10 s de silêncio (junta mensagens) ─► fila de 8 turnos ─► Hermes (hermes_hermes:8642, SOUL md5 62203261)
         │     └► modelo agy/gemini-3.7-flash-high via OmniRoute (omniroute_omniroute:20129)
         ├► revisor: POST sdr_brain:8090/review (gemini-3.7-flash-low via OmniRoute) ─► guardrail ─► até 3 balões
         ├► Evolution envia no WhatsApp; [[REGISTRO]] vira sdr_records (bridge.db) + atributo sdr_* no Chatwoot
@@ -59,9 +59,9 @@ Legenda da coluna **Verificar**: comando a rodar na VM1 salvo indicação. `CW` 
 | 12 | bridge → brain (revisor) | `POST http://sdr_brain:8090/review` (timeout `SDR_REVIEW_TIMEOUT`); decide aprovar, reescrever, bloquear | `SDR_BRAIN_TOKEN` (env dos dois) | notas "✏️ Resposta reescrita pelo revisor" no CW | resposta crua passa (revisor fora) ou bloqueios demais (vai para o Talles) | `curl http://sdr_brain:8090/health`; logs do `sdr_brain` |
 | 13 | brain → modelo | OmniRoute, `agy/gemini-3.7-flash-low` (`SDR_BRAIN_MODEL`) | `SDR_BRAIN_LLM_KEY` | logs do `sdr_brain`: `LLM attempt … failed` | revisor/supervisor/FUP com erro | mesma cota do item 9 |
 | 14 | brain → Chatwoot | atributos `sdr_*`, `spiced_*`, notas 🧭 e 📌 | `CHATWOOT_API_TOKEN` | nota "📌 Próximo passo" aparece | sem notas (não quebra a conversa) | logs do `sdr_brain` |
-| 15 | brain → bridge (FUP) | laço a cada 60 s; `POST bridge /sdr/followups`; horário pelas SDR_BUSINESS_*_HOUR (hoje 0–24, ou seja, a qualquer hora); até 4 toques/dia; depois do link, 5min/30min/2h ficam com a Kiwify | `SDR_BRAIN_TOKEN` | logs do `sdr_brain`; tabela `sdr_followups` na `bridge.db` | lead some e ninguém retoma; ou toques demais | conferir `link_enviado`, pausa e horário |
+| 15 | brain → bridge (FUP) | laço a cada 60 s; `POST bridge /sdr/followups`; horário pelas SDR_BUSINESS_*_HOUR (hoje 0–24, ou seja, a qualquer hora); até 4 toques/dia; depois do link, 5min/30min/2h ficam com a Kiwify; o relógio recomeça quando o lead responde e o agente responde de volta (`v3.2`) | `SDR_BRAIN_TOKEN` | logs do `sdr_brain`; tabela `sdr_followups` na `bridge.db` | lead some e ninguém retoma; ou toques demais | conferir `link_enviado`, pausa e horário |
 | 16 | brain → OpenReply / Meta | lê o banco do OpenReply (`OPENREPLY_DSN`) e o perfil do IG (`META_GRAPH_TOKEN`, `IG_BUSINESS_ID`) para enriquecer o lead | env do `sdr_brain` | atributos de perfil no CW | sem enriquecimento (não quebra) | **stack deploy do sdr sem exportar esses segredos apaga o token da Meta** |
-| 17 | Chatwoot → bridge (humano) | webhook do inbox 1 → `http://bridge:8080/chatwoot/webhook` | — | responder pelo CW e ver chegar no WhatsApp | resposta do Talles não sai | logs da bridge; o agente pausa quando o humano fala (`hermes-pausado`) |
+| 17 | Chatwoot → bridge (humano) | webhook do inbox 1 → `http://bridge:8080/chatwoot/webhook` | — | responder pelo CW e ver chegar no WhatsApp | resposta do Talles não sai | logs da bridge; o agente pausa quando o humano fala (`hermes-pausado`); desde a `sdr-v13.1` a resposta humana também conta como a última mensagem do agente para o follow-up |
 | 18 | Site → Kiwify | botões do `/antes` e de `/oferta/*` (links e preços vêm do catálogo no banco, editável no admin, W7) | — | `curl -s https://instalador.talles.dev/antes \| grep -o "pay.kiwify.com.br/[A-Za-z0-9]*"` → `ju44Xqc`, `ZxtChtR` | link quebrado/produto bloqueado na Kiwify | conferir o produto na Kiwify (a "Conta do Gemini" foi bloqueada e virou "1 Ano de Tokens") |
 | 19 | Kiwify → app (webhook) | `POST https://instalador.talles.dev/api/webhooks/kiwify` (webhook id `d51a31b2…`), eventos order_approved, order_refunded, chargeback, subscription_* | `Kiwify · instalador · KIWIFY_WEBHOOK_TOKEN` (cofre e Vercel) | `/admin/webhooks` mostra o cru de cada chegada | compra feita e cliente sem acesso | `/admin/webhooks`: chegou? qual status? produto não mapeado e carrinho abandonado são ignorados de propósito |
 | 20 | Kiwify → recuperador | agente da Kiwify chama carrinho abandonado, pagamento recusado e Pix não pago em até 30 min | painel Kiwify | painel Kiwify | lead recebe cobrança dupla | regra: as primeiras horas depois do link são da Kiwify; o nosso FUP só no d1/d4/data combinada |
@@ -115,20 +115,25 @@ ssh ubuntu@100.83.163.117 'for s in integration_bridge sdr_brain hermes_hermes o
 
 ---
 
-## 5. Estado do agente em produção (07/10, ~05h)
+## 5. Estado do agente em produção (08/10, ~03:45 BRT, depois da TSX-77)
 
-- `integration_bridge` = `evolution-chatwoot-bridge:sdr-v13` (fila incluída), prefixo `wa:v13:`.
-- `sdr_brain` = `sdr-brain:v3`. `hermes_hermes` com o SOUL v13 (md5 `85b70e73`).
+- `integration_bridge` = `evolution-chatwoot-bridge:sdr-v13.1` (fila incluída; a resposta humana pelo Chatwoot atualiza `last_agent_ts`), prefixo `wa:v13:`.
+- `sdr_brain` = `sdr-brain:v3.2` (preço do Instalador sempre com o link, 2ª pessoa, sem saída antes do link, nome de IA solto, relógio do FUP que recomeça). `hermes_hermes` com o SOUL md5 `62203261`.
 - OpenReply = `openreply:sdr-v2` (devolve o @ do Instagram). A palavra "time" está na campanha `raiox`, então quem comenta TIME chega com o texto do Raio-X; o agente pergunta do Raio-X e muda para a instalação assim que a pessoa diz que quer o time (simulado em 07/10).
-- **Em andamento:** troca de "Conta do Gemini" por "1 Ano de Tokens" no agente (o site já mudou; o agente em produção ainda fala o nome antigo até esse ajuste subir). O agente pode dizer que os tokens são do Gemini.
+- **Oferta do Instalador no ar:** quem chega com sinal de compra recebe o exemplo do caso, o preço e o link na mesma resposta (no máximo uma pergunta antes); VPS e Codex entram como valor junto do preço, não como triagem; servidor de referência KVM 8 da Hostinger, R$ 120 a R$ 200 por mês (`ofertas.json` de 07/10 23:30).
+- **"1 Ano de Tokens" no ar** como o nome do bump de R$ 100 no checkout. O agente continua chamando de "Conta do Gemini" e pode dizer o nome do checkout; "Gemini" sozinho continua barrado pelo guardrail.
+- A cópia de trabalho `C:\Users\talle\orca\agente-sdr` está igual à produção (commit `0de5284`, 13 arquivos conferidos por md5).
 
 ## 6. Voltar atrás (backups)
 
+Os backups da TSX-77 ficam na fonte da VM, `~/orca/projects/portainer-install/`.
+
 | O quê | Como voltar |
 |---|---|
-| Bridge | `sudo docker service update --image evolution-chatwoot-bridge:sdr-v12 --env-add HERMES_SESSION_PREFIX=wa:v14: integration_bridge` (prefixo sempre sobe, nunca volta) |
-| Brain | `sudo docker service update --image sdr-brain:v2 sdr_brain` |
-| SOUL | `$P/backups/SOUL.md.antes-v13.20261007-0657` no volume `hermes_chatwoot_data` → `install -m 444 -o 10000 -g 10000` e `--force hermes_hermes` |
+| Bridge | `sudo docker service update --image evolution-chatwoot-bridge:sdr-v13 integration_bridge` (a anterior, sem o `touch_activity` do humano; o prefixo pode ficar). Mais atrás: `sdr-v12` com `--env-add HERMES_SESSION_PREFIX=wa:v14:` (prefixo sempre sobe, nunca volta). Fonte: `bridge-src/app.py.antes-humano.20261008-0317` |
+| Brain | `sudo docker service update --image sdr-brain:v3 sdr_brain` (antes da TSX-77); mais atrás, `sdr-brain:v2`. Fonte: `sdr-brain/*.antes-tsx77.20261007` (antes da TSX-77) e `sdr-brain/*.antes-fup.20261008-0145` (antes do recomeço do relógio do FUP) |
+| SOUL | o anterior está em `hermes-sdr/SOUL.md.antes-tsx77.20261007` na fonte; o de antes da v13 em `$P/backups/SOUL.md.antes-v13.20261007-0657` no volume `hermes_chatwoot_data`. Volta com `install -m 444 -o 10000 -g 10000` no volume e `--force hermes_hermes` (vale para sessões novas) |
+| Fatos da oferta | `hermes-sdr/ofertas.json.antes-kvm8.20261008-0300` (antes do KVM 8) ou `hermes-sdr/ofertas.json.antes-prod-tsx77.20261008-0345` (antes da última troca); copiar por cima de `ofertas.json`, sem reiniciar |
 | Fonte do agente na VM | `~/backups-agente/antes-v13-20261007-0655.tgz`; `bridge-src/app.py.antes-fila.20261007-0647` |
 | Swap | `sudo swapoff /swapfile`, tirar a linha do `/etc/fstab` |
 
@@ -136,7 +141,7 @@ ssh ubuntu@100.83.163.117 'for s in integration_bridge sdr_brain hermes_hermes o
 
 1. **Pixel salvo na Kiwify** (item 26): confirmar `…6733801`.
 2. **Cupom de teste `GRAVAFUNIL7Q3K` (89%)**: confirmar no painel que o "Habilitar cupons" da instalação está desligado (a tentativa de 07/10 deu 403 ao salvar).
-3. **"1 Ano de Tokens" no agente**: subir o ajuste.
+3. **Toque com link acrescentado** (lido no código, não reproduzido): quando o revisor reescreve um toque com o link, o brain põe `[[REGISTRO: link_enviado = sim]]` no texto, e o despacho de toques da bridge não tira diretivas. Conferir em `sdr_followups.text` se algum toque saiu com `[[` (detalhe em `docs/ARVORES-DE-DECISAO.md`, seção 7).
 4. **Hermes e brain de teste** (`hermes_teste_hermes`, `sdr_teste_brain`) ainda ligados (~350 MB): derrubar quando não precisar mais.
 5. **Vídeos** da home e da /antes: "vídeo em breve" até o Talles gravar.
 6. **Telegram de alerta** do app (código do OAuth): sem variáveis; hoje o aviso é só por e-mail.

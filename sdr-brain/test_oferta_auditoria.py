@@ -5,6 +5,7 @@ Facts: OFERTA-ATUAL.md (sections 9 and 9.1 win) and hermes-sdr/ofertas.json.
 import asyncio
 import json
 import os
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -26,7 +27,7 @@ BOUGHT = {"oferta": "instalador", "ofertas": OFERTAS, "lead": {"registros": {"co
 
 # (phrase, context, must be flagged): the audit script's 41 phrases.
 AUDIT_PHRASES = [
-    ("A instalação é R$ 47, pagamento único. Por fora ficam a VPS, cerca de R$ 119 por mês, e o Codex, cerca de R$ 100 por mês, pagos direto a eles, no seu nome.", I, False),
+    ("A instalação é R$ 47, pagamento único. Por fora ficam o seu servidor, na faixa de R$ 120 a R$ 200 por mês, e o Codex, cerca de R$ 100 por mês, pagos direto a eles, no seu nome. O caminho é por aqui https://instalador.talles.dev/antes. Consegue fazer hoje?", I, False),
     ("O caminho é por aqui https://instalador.talles.dev/antes", I, False),
     ("Ele trabalha a qualquer hora, 24 horas por dia, e não depende de contratar ninguém.", I, False),
     ("Apaga essa mensagem, por favor, e depois troca essa senha. Isso vai só no formulário cifrado, depois da compra.", I, False),
@@ -210,9 +211,9 @@ class Finding11OneForbiddenList(unittest.TestCase):
 
 class Finding12MonthlyCost(unittest.TestCase):
     def test_gemini_buyer_pays_only_the_vps(self):
-        price = SOUL.split("O PREÇO (quando")[1].split("O FECHAMENTO")[0]
-        gemini = price.split("Quem vai levar a Conta do Gemini")[1].split("Depois PARE")[0]
-        self.assertIn("paga por mês só a\nVPS", gemini)
+        price = SOUL.split("O PREÇO (sempre")[1].split("O FECHAMENTO")[0]
+        gemini = price.split("Quem vai levar a Conta do Gemini")[1].split("Quem já disse que tem o Codex")[0]
+        self.assertIn("paga por mês só o\nservidor", gemini)
         self.assertNotIn("R$ 100 por mês", gemini)
         self.assertIn("não cite o Codex", gemini)
         self.assertIn("quem vai levar a Conta do Gemini paga por mês só a VPS", app.prompt("revisor.md"))
@@ -275,10 +276,179 @@ class Finding17NoContactPromise(unittest.TestCase):
 
 class Finding18Closing(unittest.TestCase):
     def test_exceptions(self):
+        # TSX-78 (07/10): the price turn no longer ends on the price; it carries the link and the next step.
         revisor = app.prompt("revisor.md")
-        self.assertIn("o turno do PREÇO do Instalador", revisor)
-        self.assertIn("o turno do link leva JUNTOS o link, os pré-requisitos", revisor)
-        self.assertIn("Este turno NÃO termina em pergunta", SOUL)
+        self.assertIn("o turno do PREÇO sai COM o link https://instalador.talles.dev/antes", revisor)
+        self.assertIn("o turno do link leva JUNTOS o exemplo do caso do lead, o preço", revisor)
+        self.assertNotIn("Este turno NÃO termina em pergunta", SOUL)
+        self.assertNotIn("não acrescente pergunta", revisor)
+
+
+INSTALLER = SOUL.split("═══ CAMINHO DO INSTALADOR ═══")[1].split("═══ CAMINHO DO RAIO-X ═══")[0]
+
+
+class Tsx77BuySignalSkipsDiscovery(unittest.TestCase):
+    """Conversa 16 (07/10): the hot lead never got the link."""
+
+    def test_soul_buy_signal(self):
+        signal = INSTALLER.split("O SINAL DE COMPRA (vale")[1].split("A ABERTURA")[0]
+        for text in ("será que seria meu caso?", "quanto custa?", "NÃO volte à descoberta", "crie 10\n      jogos de vocabulário A2",
+                     "O preço (O PREÇO)", "a ÚNICA pergunta"):
+            self.assertIn(text, signal)
+        self.assertIn("no máximo UMA pergunta antes do link", SOUL)
+        self.assertNotIn("S, P e D (com VPS e Codex) antes do link", SOUL)
+
+    def test_soul_price_always_with_link(self):
+        price = INSTALLER.split("O PREÇO (sempre junto com o link e o próximo passo)")[1].split("O FECHAMENTO")[0]
+        self.assertIn("O preço nunca sai sozinho", price)
+        self.assertIn("https://instalador.talles.dev/antes", price)
+        self.assertIn("Consegue\nfazer hoje?", price)
+
+    def test_soul_no_way_out_reactions_and_second_person(self):
+        self.assertIn('antes de o link ter saído, nunca oferece saída', SOUL)
+        self.assertIn("REAÇÃO NÃO É RESPOSTA", SOUL)
+        self.assertIn('Você fala COM o lead', SOUL)
+
+    def test_soul_server_is_value_not_triage(self):
+        self.assertIn("O SERVIDOR (VPS) é valor, não triagem", INSTALLER)
+        for text in ("trabalha mesmo com o\n  computador desligado", "R$ 120 a R$ 200 por mês", "vários agentes", "KVM 8 da Hostinger"):
+            self.assertIn(text, INSTALLER)
+        for wrong in ("KVM2", "KVM 2", "119"):
+            self.assertNotIn(wrong, SOUL)
+            self.assertNotIn(wrong, json.dumps(OFERTAS, ensure_ascii=False))
+        for name in ("revisor.md", "fup.md", "supervisor.md"):  # the reviser names KVM2 only to forbid it
+            self.assertNotIn("119", app.prompt(name))
+            self.assertNotIn("a KVM2 da Hostinger", app.prompt(name))
+        self.assertIn("nunca outro plano (KVM2, KVM 2)", app.prompt("revisor.md"))
+        self.assertIn("1 Ano de Tokens", INSTALLER)
+
+    def test_prompts(self):
+        revisor, fup, supervisor = app.prompt("revisor.md"), app.prompt("fup.md"), app.prompt("supervisor.md")
+        for rule in ("I1. SINAL DE COMPRA PULA A DESCOBERTA", "C14. FALA COM O LEAD", "C15. SEM SAÍDA ANTES DO LINK", 'C16. REAÇÃO NÃO É "SIM"',
+                     "A REESCRITA FALA COM O LEAD"):
+            self.assertIn(rule, revisor)
+        self.assertIn("o toque É o link", fup)
+        self.assertIn("Nunca oriente mais descoberta depois de sinal de compra", supervisor)
+        self.assertIn("não é \"sim\"", supervisor)
+
+
+class Tsx78PriceCtaAndThirdPerson(unittest.TestCase):
+    PRICE = "A instalação é R$ 47, pagamento único. Por fora fica só o seu servidor, na faixa de R$ 120 a R$ 200 por mês."
+
+    def test_price_without_link_is_detected(self):
+        self.assertTrue(oferta.price_without_link([self.PRICE], I))
+        self.assertTrue(oferta.price_without_link(["O time sai por R$ 47."], U))
+        self.assertFalse(oferta.price_without_link([self.PRICE + " " + oferta.PRICE_CTA], I))
+        self.assertFalse(oferta.price_without_link(["Não vem nos R$ 47: é o Atendimento no WhatsApp, R$ 3.000."], I))
+        self.assertFalse(oferta.price_without_link([self.PRICE], BOUGHT))
+        self.assertFalse(oferta.price_without_link([self.PRICE], R))
+
+    def test_cta_is_added_as_a_message_or_to_the_last_one(self):
+        self.assertEqual(oferta.with_price_cta([self.PRICE]), [self.PRICE, oferta.PRICE_CTA])
+        three = ["Exemplo.", "Preço R$ 47, pagamento único.", "Faz sentido pro seu caso? [[REGISTRO: preco_dado = sim]]"]
+        fixed = oferta.with_price_cta(three)
+        self.assertEqual(len(fixed), 3)
+        self.assertIn(oferta.PRICE_CTA, fixed[2])
+        self.assertTrue(fixed[2].endswith("[[REGISTRO: preco_dado = sim]]"))
+        self.assertEqual(oferta.with_price_cta(["Toque."], toque=True), ["Toque. " + oferta.PRICE_CTA])
+
+    def test_review_adds_the_link_when_the_model_approves_or_is_down(self):
+        for verdict in ({"decision": "aprovar"}, None,
+                        {"decision": "reescrever", "parts": ["A instalação é R$ 47, pagamento único. Por fora fica só o seu servidor, na faixa de R$ 120 a R$ 200 por mês."], "motivo": "C8"}):
+            with patch.object(app, "ask_llm", AsyncMock(return_value=verdict)):
+                result = asyncio.run(app.run_review({"draft_parts": [self.PRICE], "lead_message": "quanto custa?", "context": I, "transcript": []}))
+            self.assertEqual(result["decision"], "reescrever", verdict)
+            self.assertIn("https://instalador.talles.dev/antes", " ".join(result["parts"]))
+            self.assertTrue(re.sub(r"\s*\[\[.*?\]\]", "", result["parts"][-1]).endswith("?"))
+
+    def test_toque_gets_the_link_in_its_only_message(self):
+        with patch.object(app, "ask_llm", AsyncMock(return_value={"decision": "aprovar"})):
+            result = asyncio.run(app.run_review({"tipo": "toque", "draft_parts": [self.PRICE], "lead_message": "", "context": I, "transcript": []}))
+        self.assertEqual(len(result["parts"]), 1)
+        self.assertIn(oferta.PRICE_CTA, result["parts"][0])
+
+    def test_reviewer_sees_the_cta_issue(self):
+        seen = []
+
+        async def llm(instruction, **kwargs):
+            seen.append(instruction); return {"decision": "aprovar"}
+
+        with patch.object(app, "ask_llm", new=llm):
+            asyncio.run(app.run_review({"draft_parts": [self.PRICE], "lead_message": "quanto custa?", "context": I, "transcript": []}))
+        self.assertIn(app.PRICE_WITHOUT_LINK, json.loads(seen[0].split("\nDADOS:\n", 1)[1])["verificacao_automatica"])
+
+    def test_third_person_is_flagged(self):
+        # Conversa 16, 20:47: "fica só a VPS direto pra empresa dela".
+        self.assertTrue(any("3ª pessoa" in i for i in check("Por fora fica só o servidor, direto pra empresa dela.")))
+        self.assertTrue(any("3ª pessoa" in i for i in check("Mando o link do lead agora.", U)))
+        self.assertEqual(check("Por fora fica só o seu servidor, no seu nome."), [])
+        self.assertEqual(check("Pergunta pro seu sócio o que ele acha da agenda dele.", I, ["meu sócio cuida da agenda dele"]), [])
+        bad = {"decision": "reescrever", "parts": ["Fica só o servidor, no nome dela."], "motivo": "x"}
+        with patch.object(app, "ask_llm", AsyncMock(return_value=bad)):
+            result = asyncio.run(app.run_review({"draft_parts": ["Fica direto pra empresa dela."], "lead_message": "ok", "context": I, "transcript": []}))
+        self.assertEqual(result["decision"], "bloquear")
+
+    def test_way_out_before_the_link(self):
+        # Conversa 16, 20:55: "Te passo o link… ou prefere olhar em outro momento?"
+        self.assertTrue(any("outro momento" in i for i in check("Te passo o link, ou prefere olhar em outro momento?")))
+        self.assertTrue(any("outro momento" in i for i in check("Fica à vontade pra me chamar quando puder.", U)))
+        self.assertEqual(check("O caminho é por aqui https://instalador.talles.dev/antes. Consegue hoje, ou fica para outro dia?"), [])
+        sent = ["O caminho é por aqui https://instalador.talles.dev/antes. Consegue fazer hoje?"]
+        self.assertEqual(oferta.check(["Sem problema, fica para outro dia?"], I, [""], sent), [])
+        linked = {**I, "lead": {"registros": {"link_enviado": "sim"}}}
+        self.assertEqual(check("Sem problema, fica para outro dia?", linked), [])
+        self.assertEqual(check("Faz sentido seguir agora, ou prefere outro momento?", R), [])
+        self.assertEqual(check("Combinado. Fica à vontade para me chamar quando contratar a VPS."), [])
+        self.assertEqual(check("Conseguiu contratar a VPS ontem, ou ficou pra outro dia?"), [])  # his own step's date, not a way out
+
+    def test_link_record_follows_what_the_lead_receives(self):
+        # Simulation 07/10 (quente-reacao): the reviser dropped price and link, but the draft's link_enviado = sim stayed.
+        directives = [{"type": "registro", "campo": "preco_dado", "valor": "sim"}, {"type": "registro", "campo": "link_enviado", "valor": "sim"},
+                      {"type": "registro", "campo": "proximo_passo", "valor": "comprar pelo link"}]
+        dropped = {"decision": "reescrever", "parts": ["O que você faz hoje? Te digo como fica no seu caso."], "motivo": "C16"}
+        with patch.object(app, "ask_llm", AsyncMock(return_value=dropped)):
+            result = asyncio.run(app.run_review({"draft_parts": [self.PRICE + " " + oferta.PRICE_CTA], "directives": directives,
+                                                 "lead_message": "[Reação recebida: ❤️ na mensagem X]", "context": I, "transcript": []}))
+        self.assertIn("[[REGISTRO: proximo_passo = comprar pelo link]]", result["parts"][-1])
+        self.assertNotIn("link_enviado", result["parts"][-1])
+        self.assertNotIn("preco_dado", result["parts"][-1])
+        # The link the code adds is recorded.
+        with patch.object(app, "ask_llm", AsyncMock(return_value={"decision": "aprovar"})):
+            result = asyncio.run(app.run_review({"draft_parts": [self.PRICE], "directives": [{"type": "registro", "campo": "oferta", "valor": "instalador"}],
+                                                 "lead_message": "quanto custa?", "context": I, "transcript": []}))
+        self.assertIn("[[REGISTRO: link_enviado = sim]]", result["parts"][-1])
+        self.assertIn("[[REGISTRO: oferta = instalador]]", result["parts"][-1])
+        # Nothing to fix: the rewrite goes as the reviewer wrote it.
+        same = {"decision": "reescrever", "parts": ["Texto sem link. Faz sentido?"], "motivo": "x"}
+        self.assertEqual(app.reconcile_link_record(same, [{"type": "registro", "campo": "dor", "valor": "x"}]), same)
+
+    def test_the_link_host_is_not_a_deadline(self):
+        # Simulation 07/10 (quente-pergunta-preco): blocked as "prazo errado" because of "amanhã … instalador.talles.dev".
+        self.assertEqual(check("Combinado! O link fica aqui pra quando você abrir amanhã cedo: https://instalador.talles.dev/antes"), [])
+        self.assertTrue(check("Amanhã já fica instalado."))
+
+    def test_bare_ai_name_is_flagged_before_the_bridge_blocks_it(self):
+        # Simulation 07/10 (frio-curioso): "Como você já assina o ChatGPT…" would be blocked and escalated by the bridge.
+        self.assertTrue(any("IA solto" in i for i in check("Como você já assina o ChatGPT, não tem custo novo.")))
+        self.assertTrue(any("IA solto" in i for i in check("Funciona com o Gemini também.", U)))
+        for ok in ("O Codex é o plano pago do ChatGPT que você já paga.", "Se você tem o ChatGPT Plus, já tem o Codex.",
+                   "Sem Codex, dá para levar a Conta do Gemini junto na compra."):
+            self.assertEqual(check(ok), [], ok)
+        self.assertIn("nunca o nome solto", app.prompt("revisor.md"))
+        self.assertIn('nunca "o ChatGPT" sozinho', SOUL)
+
+    def test_capacity_escalation_is_not_replaced_by_the_anchor(self):
+        # Simulation 07/10 (marina): the reviser swapped "Deixa eu confirmar a agenda" for the R$ 48.000 anchor.
+        self.assertIn("X2b.", app.prompt("revisor.md"))
+        self.assertIn("nunca troque a escalação por âncora", app.prompt("revisor.md"))
+
+    def test_cold_curiosity_is_not_a_buy_signal(self):
+        self.assertIn("NÃO é sinal de compra a curiosidade de quem chegou frio", SOUL)
+        self.assertIn("Curiosidade de quem chegou frio", app.prompt("revisor.md"))
+
+    def test_gemini_checkout_name_is_not_a_duration_promise(self):
+        self.assertEqual(check('Na compra, a Conta do Gemini aparece como "1 Ano de Tokens", R$ 100, uma vez.'), [])
+        self.assertTrue(check("A Conta do Gemini dura 1 ano."))
 
 
 class ToConfirm(unittest.TestCase):
@@ -321,7 +491,7 @@ class ToConfirm(unittest.TestCase):
 
 class EntryStepForDisqualifiedRaiox(unittest.TestCase):
     """Decisão do Talles (06/10): o desqualificado do Raio-X pode ouvir a instalação de R$ 47."""
-    PRICE = "A instalação é R$ 47, pagamento único. Por fora fica só a VPS, cerca de R$ 119 por mês."
+    PRICE = "A instalação é R$ 47, pagamento único. Por fora fica só o seu servidor, na faixa de R$ 120 a R$ 200 por mês."
 
     def test_qualified_raiox_lead_still_cannot_hear_installer_prices(self):
         self.assertTrue(oferta.check([self.PRICE], R, []))

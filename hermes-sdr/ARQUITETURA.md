@@ -1,6 +1,10 @@
 # Arquitetura do SDR no WhatsApp
 
-Estado em 2026-09-28. O histórico de cada decisão, com evidências, está em
+Estado em 2026-09-28, com imagens, revisor, follow-up e handover
+atualizados até 08/10/2026 (sessão TSX-77: bridge `sdr-v13.1`, brain
+`sdr-brain:v3.2`). O caminho do Instalador e as regras de oferta estão em
+[`../docs/ARVORES-DE-DECISAO.md`](../docs/ARVORES-DE-DECISAO.md). O histórico
+de cada decisão, com evidências, está em
 [`../HERMES_OPS_LOG.md`](../HERMES_OPS_LOG.md). Segredos ficam só em
 `CREDENTIALS.md` / `creds` (fora do Git).
 
@@ -45,8 +49,8 @@ Na `ai_stack`, use sempre o nome completo do serviço (`chatwoot_postgres`,
 | Serviço | Imagem | Papel |
 |---|---|---|
 | `hermes_hermes` | `hermes-agent:latest` | O SDR. API OpenAI-compatible em `hermes_hermes:8642/v1`. |
-| `integration_bridge` | `evolution-chatwoot-bridge:sdr-v12` | Bridge Evolution ↔ Chatwoot ↔ Hermes com a camada SDR (`bridge-src/`). Monta `hermes-sdr/` em `/sdr`. |
-| `sdr_brain` (stack `sdr`) | `sdr-brain:v2` | Revisor, supervisor, enriquecimento e agente de FUP (`sdr-brain/`). Sem porta publicada. Redes `ai_stack` e `openreply_internal`. |
+| `integration_bridge` | `evolution-chatwoot-bridge:sdr-v13.1` | Bridge Evolution ↔ Chatwoot ↔ Hermes com a camada SDR (`bridge-src/`). Monta `hermes-sdr/` em `/sdr`. |
+| `sdr_brain` (stack `sdr`) | `sdr-brain:v3.2` | Revisor, supervisor, enriquecimento e agente de FUP (`sdr-brain/`). Sem porta publicada. Redes `ai_stack` e `openreply_internal`. |
 | `evogo_evolution` | `evoapicloud/evolution-go` | Transporte WhatsApp, instância `whatsapp`. |
 | `chatwoot_*` | `chatwoot/chatwoot:v4.18.0` | Inbox humana e histórico, conta 1. |
 | `omniroute_omniroute` | `diegosouzapw/omniroute` | Roteador de LLM com `REQUIRE_API_KEY=true`. Chaves: `hermes-bridge` e `sdr-brain`. |
@@ -61,7 +65,7 @@ Na `ai_stack`, use sempre o nome completo do serviço (`chatwoot_postgres`,
 - **Persona:** [`SOUL.md`](SOUL.md), instalada em `/opt/data/SOUL.md` com
   modo 444 e uid 10000. Backups em `/opt/data/backups/`.
   - O prompt congela por sessão. A bridge usa sessões
-    `<HERMES_SESSION_PREFIX><jid>` (hoje `wa:v12:`). **Mudou a persona? Suba
+    `<HERMES_SESSION_PREFIX><jid>` (hoje `wa:v13:`). **Mudou a persona? Suba
     o prefixo.**
 - **Toolsets:** `web`, `vision` e `clarify`. `skills` está desabilitado; a
   política fica no volume `hermes_policy` (ver `HERMES_SECURITY_POLICY.md`).
@@ -93,6 +97,14 @@ Na `ai_stack`, use sempre o nome completo do serviço (`chatwoot_postgres`,
        Talles.
   - Por fim: objeções pelos três testes, quando escalar, registros, um
     exemplo de tom e um checklist antes de enviar.
+  - Desde 06/10 o SOUL tem também o **CAMINHO DO INSTALADOR** (R$ 47). Em
+    08/10 (TSX-77): quem chega com sinal de compra recebe o exemplo do caso,
+    o preço e o link na mesma resposta, com no máximo uma pergunta antes; o
+    servidor (KVM 8 da Hostinger como exemplo, R$ 120 a R$ 200 por mês) e o
+    Codex entram como valor junto do preço, não como triagem; o preço sai
+    sempre com o link `/antes` e "Consegue fazer hoje?"; nada de "outro
+    momento" antes do link; fala com o lead em 2ª pessoa; reação não é
+    resposta; "o plano pago do ChatGPT", nunca "o ChatGPT" solto.
 
 ### Diretivas na resposta do Hermes
 
@@ -136,7 +148,9 @@ A bridge interpreta as diretivas e as remove antes do envio. Qualquer
    `/events/exchange`, que aciona o supervisor.
 
 - **Handover humano:** resposta pelo celular ou pelo Chatwoot aplica
-  `hermes-pausado`. Enquanto a label existir, o Hermes não responde.
+  `hermes-pausado`. Enquanto a label existir, o Hermes não responde. A
+  resposta pelo Chatwoot também atualiza `last_agent_ts` (`sdr-v13.1`), para
+  o follow-up contar a partir dela quando a pausa sai.
 - **Mensagens do dono:** as do número do Talles (`SDR_NOTIFY_NUMBER` +
   `SDR_OWNER_IDS`, que cobrem o JID com e sem o nono dígito e o LID) nunca vão
   ao Hermes.
@@ -174,15 +188,26 @@ Modelo: `SDR_BRAIN_MODEL=agy/gemini-3.7-flash-low`. As chamadas pedem JSON, e
 - **Decisões:** `aprovar`, `reescrever` (novas `parts`) ou `bloquear`.
   `bloquear` só vale para sigilo e nome de cliente, e escala.
 - **Na dúvida, aprova.** A reescrita só corta ou conserta. Nunca acrescenta
-  preço, âncora ou passo.
+  preço, âncora ou passo. Exceções, só no Instalador: o custo mensal junto
+  do preço (I8), o link e o próximo passo junto do preço (C8) e, depois de
+  sinal de compra, exemplo, preço e link (I1). A reescrita fala com o lead
+  em 2ª pessoa.
 - **O que ele sabe:** a lista de fatos reais da oferta (que não contam como
   "logística inventada") e as frases literais do roteiro, que nunca reescreve.
 - **Regras fiscalizadas:** sigilo, nomes, curso/mentoria, 48k antes de 12k,
   capacidade, números permitidos, afirmação ou logística inventada, voz
   "eu / o Talles", responder a pergunta do lead, lead fora do perfil sem
   preço, dossiê inventado, 3 balões, um passo por turno, nada de preço antes
-  do diagnóstico (dor, custo, urgência e faturamento), pergunta final e
-  reconhecimento da objeção.
+  do diagnóstico no Raio-X (dor, custo, urgência e faturamento), pergunta
+  final e reconhecimento da objeção. Desde 08/10: 2ª pessoa (C14), sem
+  saída antes do link (C15), reação não é "sim" (C16), nome de IA nunca
+  solto (C1) e a escalação por capacidade incerta não se troca por âncora
+  (X2b).
+- **No código, depois do modelo:** as violações automáticas de `oferta.py`
+  que sobram viram `bloquear`; o preço da instalação sem o link ganha "O
+  caminho é por aqui https://instalador.talles.dev/antes. Consegue fazer
+  hoje?" (`enforce_price_cta`); e `link_enviado` acompanha o link que de fato
+  sai (`reconcile_link_record`).
 - **Tempo:** uma tentativa, `SDR_REVIEW_LLM_TIMEOUT=18` s.
 
 ### O que aparece no Chatwoot (`crm.py`)
@@ -265,10 +290,17 @@ Resolve quem é o lead no Instagram e grava a `ficha` pela rota
 - **Estágios:** `5min`, `30min`, `2h`, `d1`, e `d4` depois do preço.
   - A cada passada, decide só o estágio mais recente alcançado, sem
     rajada depois de downtime.
-- **A sequência não reinicia quando o lead responde.** O estágio é pulado
-  ("conversa em andamento") se o lead respondeu nos últimos 30 min
-  (`SDR_QUIET_AFTER_REPLY_SECONDS`). Termina no último estágio, em
+- **A sequência recomeça quando o lead responde e o agente responde de
+  volta** (decisão de 07/10, `v3.2`): a âncora passa a ser a última
+  mensagem do agente, e 5min, 30min e 2h valem de novo. A regra antiga dos
+  30 min ("conversa em andamento", `SDR_QUIET_AFTER_REPLY_SECONDS`) segue no
+  código, mas na prática não dispara mais. Termina no último estágio, em
   `desfecho` ou com a conversa pausada.
+- **Depois do link** (`link_enviado = sim`), 5min, 30min e 2h ficam com o
+  recuperador da Kiwify; o FUP só sai no `d1`, no `d4` ou na data combinada.
+- **Instalador, antes do link:** o toque para quem mostrou intenção é o
+  próprio link (exemplo, preço com custo mensal, link, "Consegue fazer
+  hoje?"), sem saída honesta.
 - **O que o modelo recebe:** estágio, transcrição, toques anteriores e se o
   lead respondeu no meio. Devolve `{"disparar", "texto", "motivo"}`.
   - O toque continua o assunto e empurra para o próximo passo. Não é

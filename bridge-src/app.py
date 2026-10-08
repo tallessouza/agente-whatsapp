@@ -1617,6 +1617,9 @@ async def chatwoot_webhook(request: Request) -> dict[str, bool]:
         conversation_id = int(conversation.get("display_id") or conversation["id"])
         handover.record(conversation_id, "cw:" + delivery_id, "atendente_humano", content or "[anexo enviado pelo atendente]")
         await handover.pause(conversation_id)
+        # A resposta humana conta como a última mensagem do nosso lado: quando o Talles tira a pausa,
+        # o follow-up recomeça a partir dela (07/10, conversa 17).
+        sdr.touch_activity(conversation_id, agent=True)
         number = jid_number(row[0])
         native_sent = False
         native_location = attributes.get("whatsapp_location") or attributes.get("location")
