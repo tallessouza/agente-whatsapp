@@ -21,7 +21,10 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-OFFERS = ("instalador", "raiox")
+OFFERS = ("instalador", "raiox", "atendimento")
+# The "atendimento" offer (prospecção ativa): no price and no link in the conversation;
+# the next step is a 20-minute talk with the Talles, who makes the proposal.
+NO_PRICE_OFFERS = ("atendimento",)
 SPICED_FIELDS = {"S": "situacao", "P": "dor", "I": "impacto", "C": "evento_critico", "D": "decisao"}
 
 # Structure of the competitor's pages may be used; his words, names and numbers never.
@@ -294,7 +297,7 @@ def link_sent(context: dict[str, Any], sent_texts: list[str] | tuple = ()) -> bo
 
 def price_without_link(parts: list[str], context: dict[str, Any]) -> bool:
     """TSX-78: the installation price in a draft without the /antes link (before the purchase)."""
-    if purchased(context) or (current_offer(context) == "raiox" and not disqualified(context)):
+    if purchased(context) or current_offer(context) in NO_PRICE_OFFERS or (current_offer(context) == "raiox" and not disqualified(context)):
         return False
     folded = fold("\n".join(re.sub(r"\[\[.*?\]\]", "", part) for part in parts or []))
     return bool(_affirmed(INSTALL_PRICE_RE, folded)) and "instalador.talles.dev/antes" not in folded
@@ -334,7 +337,7 @@ def check(parts: list[str], context: dict[str, Any], lead_texts: list[str], sent
         if match.group(0) not in lead_folded:
             issues.append(f"fala do lead em 3ª pessoa (\"{match.group(0)}\"): fale com ele, \"você\"/\"seu\"/\"sua\"")
             break
-    if offer != "raiox" and not bought and "instalador.talles.dev/antes" not in folded and not link_sent(context, sent_texts) \
+    if offer not in ("raiox", *NO_PRICE_OFFERS) and not bought and "instalador.talles.dev/antes" not in folded and not link_sent(context, sent_texts) \
             and _affirmed(OTHER_TIME_RE, folded):
         issues.append("oferece outro momento antes de o link /antes ter saído")
     allowed_ai = re.sub(r"\s+", " ", folded)
@@ -352,12 +355,18 @@ def check(parts: list[str], context: dict[str, Any], lead_texts: list[str], sent
             allowed |= offer_amounts(ofertas, "instalador", upper_steps=False)
     elif offer == "instalador":
         allowed = offer_amounts(ofertas, "instalador", upper_steps=bought)
+    elif offer in NO_PRICE_OFFERS:
+        allowed = set()
+        if MONEY_RE.search(folded):
+            issues.append("preço na conversa do Atendente de IA (não existe preço na conversa: o Talles apresenta a proposta na conversa de 20 min)")
     else:
         allowed = offer_amounts(ofertas, "instalador", upper_steps=False) | offer_amounts(ofertas, "raiox")
     if allowed:
         issues += _price_issues(folded, allowed, {v for t in lead_texts or [] for v in amounts(t)})
         issues += _product_price_issues(folded, ofertas)
 
+    if offer in NO_PRICE_OFFERS and URL_RE.search(text):
+        issues.append("link na conversa do Atendente de IA (o próximo passo é a conversa de 20 min com o Talles, não um link)")
     for url in URL_RE.findall(text):
         host = urlparse(url if "://" in url else "https://" + url).netloc.lower().removeprefix("www.")
         if host not in INSTALLER_HOSTS:
@@ -366,7 +375,9 @@ def check(parts: list[str], context: dict[str, Any], lead_texts: list[str], sent
         issues.append("pede senha, token ou dados do servidor na conversa (só pelo formulário cifrado)")
     if _affirmed(REVENUE_PROMISE_RE, folded):
         issues.append("promessa de faturamento ou vendas")
-    if _affirmed(DISCOUNT_RE, folded):
+    # Atendimento: "condição especial para os 5 primeiros" is the real scarcity the Talles approved (09/10).
+    discount_text = re.sub(r"\bcondicao especial\b[^.!?\n]{0,60}\b5 primeiros\b", " ", folded) if offer in NO_PRICE_OFFERS else folded
+    if _affirmed(DISCOUNT_RE, discount_text):
         issues.append("desconto ou cupom (não existe)")
     if _affirmed(CONTACT_PROMISE_RE, folded):
         issues.append("promete contato numa data (o agente não agenda contato; o próximo passo vai para o registro)")
@@ -374,7 +385,7 @@ def check(parts: list[str], context: dict[str, Any], lead_texts: list[str], sent
         issues.append("promete por quanto tempo a Conta do Gemini dura")
     if COPIAR_SWAP_RE.search(folded):
         issues.append("troca a implantação do Raio-X pelo Copiar a minha operação (são dois produtos)")
-    if offer != "raiox":
+    if offer not in ("raiox", *NO_PRICE_OFFERS):
         # The link's host ("instalador.talles.dev") is not "instalado amanhã".
         no_urls = URL_RE.sub(" ", folded)
         if any(int(m.group(1) or 0) < 48 for m in _affirmed(FAST_DEADLINE_RE, no_urls)):

@@ -6,7 +6,7 @@ Não é lembrete e não é frase pronta. É a PRÓXIMA MENSAGEM DA CONVERSA: con
 
 O QUE VOCÊ RECEBE
 - `stage`: por que este toque existe. `5min`, `30min`, `2h`, `d1` e `d4` contam o tempo desde o início de um silêncio do lead. `prazo` quer dizer que chegou a data do próximo passo que ele combinou.
-- `oferta`: instalador | raiox (pode faltar; descubra pelo transcript).
+- `oferta`: instalador | raiox | atendimento (pode faltar; descubra pelo transcript).
 - `proximo_passo`: {texto, ate}, o que ficou combinado e para quando. `evento_critico`: por que ele precisa disso agora e até quando, se ele disse.
 - `pre_requisitos` (no `prazo`): tem_vps e tem_codex do lead do Instalador.
 - `state.context.ofertas`: preços, link, prazos e garantia de cada oferta. Só esses valem.
@@ -22,6 +22,7 @@ Aí escreva UMA mensagem que traz esse algo novo e termina puxando o próximo pa
 O CAMINHO DE CADA OFERTA
 - Instalador: abertura → (só para quem chegou frio: S, o que o negócio faz; P, o que toma o tempo dele) → um exemplo concreto do nicho dele (o pedido e o que o time devolve) → preço com o custo mensal, SEMPRE junto do link https://instalador.talles.dev/antes e do próximo passo ("Consegue fazer hoje?") → comprou → área do cliente e formulário → "Pronto.". Quem mostrou intenção ("quero", "seria meu caso?", "quanto custa?") pula a descoberta. VPS e Codex não são perguntas de triagem.
 - Instalador, lead que mostrou intenção e o link ainda não saiu: o toque É o link. Uma mensagem com o exemplo concreto do caso dele, o preço com o custo mensal e o link, terminando em "Consegue fazer hoje?". Nunca preço sem link.
+- Atendente (prospecção, `oferta` = atendimento): o negócio respondeu ao teste e conversou; o caminho é revelação → quem decide → S (quem responde e até que horas) → P (o que acontece fora do horário) → I (quanto vale um cliente, se paga anúncio) → conversa de 20 min com o Talles. O toque retoma a última pergunta com algo novo ligado ao que ELE disse e oferece duas opções de horário. Nunca preço, link, prazo ou garantia. Se ele pediu para parar ou só veio resposta automática, não dispare. Nunca mais de um toque por silêncio.
 - Raio-X: abertura ("o que trava…") → triagem (quantas pessoas dependem dele, o que já tentou) → impacto (o que isso custa, faturamento) → evento crítico (é pra agora?) → espelho → âncora → Raio-X → objeções → as três perguntas → fechamento.
 
 O TOQUE DO PRAZO (`stage` = prazo)

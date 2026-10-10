@@ -1,0 +1,39 @@
+######## recepcao
+
+[1] LEAD: Boa noite, sim! Em que posso ajudar?
+    AGENTE: Boa noite! Obrigado pelo retorno. Sou o agente do Talles.
+    AGENTE: Na verdade eu não tinha uma dúvida: foi um teste de tempo de resposta que o Talles faz com imobiliárias da região. Vocês responderam em 8 minutos e ficaram entre os mais rápidos.
+    AGENTE: Quem está falando comigo agora é o próprio dono ou alguém da equipe?
+    [diretivas] registro:oferta=atendimento; registro:proximo_passo=descobrir quem respondeu; registro:proximo_passo_em=2026-10-09
+
+[2] LEAD: Ah, que bom! Haha. Aqui é a Júlia, da recepção. O dono é o Sr. Marcos, ele não fica por esse WhatsApp. Do que se trata exatamente?
+    AGENTE: Oi Júlia! O Talles instala um atendente de IA no WhatsApp da imobiliária.
+    AGENTE: Ele não substitui ninguém da equipe: ele atende quando vocês não estão, faz as perguntas iniciais pro cliente e deixa a conversa pronta, com o resumo, pra vocês continuarem.
+    AGENTE: Posso te mandar um resuminho de 3 linhas sobre o teste e como funciona pra você encaminhar pro Sr. Marcos?
+    [diretivas] registro:quem_respondeu=equipe; registro:decisor=Sr. Marcos (dono); registro:proximo_passo=enviar resumo para a equipe encaminhar ao dono; registro:proximo_passo_em=2026-10-09
+
+[3] LEAD: Ah, entendi! Fico mais tranquila então haha. Pode mandar sim, aí eu encaminho pro Sr. Marcos dar uma olhada!
+    (revisor reescreveu: C9: voz ('a gente'))
+    rascunho: Show, Júlia! Pode mandar esse texto aqui pra ele: / A Imobiliária Porto Itajaí respondeu ao teste do Talles em 8 minutos, entre as mais rápidas da região. Ele instala um atendente de IA no WhatsApp que atende clientes fora do horário, faz as perguntas iniciais e entrega a conversa com resumo pra equipe continuar. O Talles mostra funcionando na prática com os dados da imobiliária numa conversa rápi
+    AGENTE: Show, Júlia! Pode mandar esse texto aqui pra ele:
+    AGENTE: A Imobiliária Porto Itajaí respondeu ao teste do Talles em 8 minutos, entre as mais rápidas da região. Ele instala um atendente de IA no WhatsApp que atende clientes fora do horário, faz as perguntas iniciais e entrega a conversa com resumo pra equipe continuar. O Talles mostra funcionando na prática com os dados da imobiliária numa conversa rápida de 20 minutos.
+    AGENTE: Você acha melhor eu combinar um horário com ele por aqui ou tem outro contato que ele prefira?
+    [diretivas] registro:proximo_passo=Júlia encaminhar resumo para o Sr. Marcos; registro:proximo_passo_em=2026-10-10
+
+[4] LEAD: Vou repassar pra ele aqui! Se ele tiver interesse eu te aviso por esse WhatsApp mesmo pra gente combinar, pode ser?
+    AGENTE: Pode ser sim, Júlia!
+    AGENTE: Fica super à vontade pra me chamar por aqui assim que falar com ele.
+    AGENTE: Bom final de semana pra você!
+    [diretivas] registro:proximo_passo=aguardar retorno da Júlia após falar com Sr. Marcos; registro:proximo_passo_em=2026-10-10
+
+[5] LEAD: Obrigada! Bom final de semana pra você também! 😊
+    (silêncio: nada enviado; fim da simulação)
+
+== registros ==
+{
+ "oferta": "atendimento",
+ "proximo_passo": "aguardar retorno da Júlia após falar com Sr. Marcos",
+ "proximo_passo_em": "2026-10-10",
+ "quem_respondeu": "equipe",
+ "decisor": "Sr. Marcos (dono)"
+}

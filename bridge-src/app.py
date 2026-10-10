@@ -10,6 +10,8 @@ import sqlite3
 import time
 import uuid
 import handover
+import prospeccao
+import random
 import sdr
 import tempfile
 import threading
@@ -79,14 +81,16 @@ _stt_model: Any = None
 _stt_lock = threading.Lock()
 _outbox_task: asyncio.Task | None = None
 _followup_task: asyncio.Task | None = None
+_prospect_task: asyncio.Task | None = None
 
 
 @app.on_event("startup")
 async def start_background_workers() -> None:
-    global _outbox_task, _followup_task
+    global _outbox_task, _followup_task, _prospect_task
     db().close()
     _outbox_task = asyncio.create_task(outbox_worker(), name="evolution-outbox")
     _followup_task = asyncio.create_task(followup_worker(), name="sdr-followups")
+    _prospect_task = asyncio.create_task(prospect_worker(), name="prospeccao")
 
 
 @app.on_event("shutdown")
@@ -104,6 +108,10 @@ async def stop_background_workers() -> None:
         try: await _followup_task
         except asyncio.CancelledError: pass
         _followup_task = None
+    if _prospect_task:
+        _prospect_task.cancel()
+        try: await _prospect_task
+        except asyncio.CancelledError: pass
 
 
 def db() -> sqlite3.Connection:
@@ -1204,6 +1212,83 @@ async def followup_worker() -> None:
         await asyncio.sleep(30)
 
 
+async def check_whatsapp(number: str) -> dict[str, Any] | None:
+    """Evolution's /user/check: whether the number has WhatsApp, and its real JID (Brazilian JIDs may drop the 9)."""
+    async with httpx.AsyncClient(timeout=30) as client:
+        r = await client.post(f"{EVOLUTION_URL}/user/check", headers={"apikey": EVOLUTION_API_KEY}, json={"number": [number], "formatJid": True})
+        r.raise_for_status()
+        users = ((r.json() or {}).get("data") or {}).get("Users") or []
+    return users[0] if users else None
+
+
+async def prospect_once(now: float | None = None, numero: str | None = None) -> str:
+    """Send at most one test message. `numero` (manual send) skips the window and the gap, never the cap."""
+    now = time.time() if now is None else now
+    local = datetime_local(now)
+    if not numero:
+        if not prospeccao.enabled(): return "desligada"
+        if not prospeccao.in_window(local): return "fora_da_janela"
+        if now < float(prospeccao.kv_get("proximo_envio") or 0): return "intervalo"
+    if prospeccao.sent_today(now) >= prospeccao.daily_cap(now): return "teto_do_dia"
+    item = prospeccao.next_queued(numero)
+    if not item: return "fila_vazia"
+    number, data = item
+    prospeccao.kv_set("proximo_envio", str(now + prospeccao.next_gap()))
+    try:
+        check = await check_whatsapp(number)
+    except Exception as exc:
+        logger.exception("Prospect check failed number=%s", number)
+        prospeccao.update(number, status="erro", erro="check: " + str(exc)[:200])
+        return "erro"
+    if not check or not check.get("IsInWhatsapp"):
+        prospeccao.update(number, status="sem_whatsapp")
+        return "sem_whatsapp"
+    jid = re.sub(r":\d+(?=@)", "", str(check.get("JID") or ""))
+    lid = re.sub(r":\d+(?=@)", "", str(check.get("LID") or "")) or None
+    conn = db(); known = conn.execute("SELECT 1 FROM contacts WHERE jid=? OR jid=?", (jid, lid or "")).fetchone(); conn.close()
+    if not jid or sdr.is_owner(jid) or known:
+        prospeccao.update(number, status="ja_contato", jid=jid, lid=lid)
+        return "ja_contato"
+    text = prospeccao.test_text(local)
+    try:
+        source_id, conversation_id = await ensure_conversation(jid, str(data.get("nome") or check.get("VerifiedName") or jid))
+        # enviado_em before the send: an automatic greeting can arrive within a second.
+        prospeccao.update(number, status="enviando", jid=jid, lid=lid, conversation=conversation_id, nome_whatsapp=check.get("VerifiedName") or None, texto=text, enviado_em=now)
+        await send_presence(jid_number(jid), "composing")
+        await asyncio.sleep(random.uniform(2.0, 6.0))
+        await send_evolution(jid_number(jid), text)
+    except Exception as exc:
+        logger.exception("Prospect send failed number=%s", number)
+        prospeccao.update(number, status="erro", erro="envio: " + str(exc)[:200], enviado_em=None)
+        return "erro"
+    current = prospeccao.for_jid(jid)
+    if current and current.get("status") == "enviando":  # a reply may already have marked it
+        prospeccao.update(number, status="enviado")
+    prospeccao.schedule_pitch(conversation_id, now, now=now)
+    try:
+        await add_chatwoot_message(source_id, conversation_id, text, outgoing=True, suppress_evolution=True)
+        await sdr.add_label(conversation_id, prospeccao.PROSPECT_LABEL)
+        resumo = ", ".join(f"{k}: {v}" for k, v in data.items())
+        await sdr.private_note(conversation_id, "🔎 Prospecção: teste de atendimento enviado.\n" + resumo)
+    except Exception:
+        logger.exception("Prospect Chatwoot bookkeeping failed conversation=%s", conversation_id)
+    logger.info("Prospect sent number=%s conversation=%s", number, conversation_id)
+    return "enviado"
+
+
+def datetime_local(ts: float):
+    from datetime import datetime
+    return datetime.fromtimestamp(ts, sdr.BUSINESS_TZ)
+
+
+async def prospect_worker() -> None:
+    while True:
+        try: await prospect_once()
+        except asyncio.CancelledError: raise
+        except Exception: logger.exception("prospect iteration failed")
+        await asyncio.sleep(5)
+
+
 def split_outbound_text(content: str, limit: int = EVOLUTION_MAX_MESSAGE_LENGTH) -> list[str]:
     """Split WhatsApp text at readable boundaries while respecting Evolution's limit."""
     text = str(content or "")
@@ -1467,6 +1552,37 @@ async def sdr_conversation(conversation_id: int, request: Request):
     return {"jid":row[0],"source_id":row[1],"lead":sdr.lead_state(conversation_id),"followups":f,"paused":await handover.paused(conversation_id),"last_lead_ts":lead,"last_agent_ts":agent,"context":sdr.context_payload(conversation_id)}
 
 
+@app.post("/prospeccao/fila")
+async def prospect_queue(request: Request):
+    if (e:=_sdr_auth(request)): return e
+    p = await request.json()
+    return prospeccao.enqueue(p.get("negocios") or [])
+
+
+@app.get("/prospeccao/status")
+async def prospect_status(request: Request):
+    if (e:=_sdr_auth(request)): return e
+    return prospeccao.stats()
+
+
+@app.post("/prospeccao/pausar")
+async def prospect_pause(request: Request):
+    if (e:=_sdr_auth(request)): return e
+    p = await request.json()
+    prospeccao.kv_set("prospeccao_pausada", "1" if p.get("pausar", True) else "0")
+    return prospeccao.stats()
+
+
+@app.post("/prospeccao/enviar-agora")
+async def prospect_send_now(request: Request):
+    """Manual send of one queued number (first controlled test); the daily cap still holds."""
+    if (e:=_sdr_auth(request)): return e
+    p = await request.json()
+    numero = prospeccao.normalize_number(p.get("numero"))
+    if not numero: return JSONResponse({"detail": "numero inválido"}, status_code=400)
+    return {"resultado": await prospect_once(numero=numero)}
+
+
 @app.post("/evolution/webhook")
 async def evolution_webhook(request: Request) -> dict[str, bool]:
     if BRIDGE_WEBHOOK_TOKEN and request.headers.get("authorization") != f"Bearer {BRIDGE_WEBHOOK_TOKEN}":
@@ -1576,6 +1692,7 @@ async def evolution_webhook(request: Request) -> dict[str, bool]:
         conn = db(); conn.execute("DELETE FROM messages WHERE external_id=?", (external_id,)); conn.commit(); conn.close()
         raise
     if incoming and not state_event:
+        prospeccao.replied(jid)  # no-op unless this is a business we tested
         queue_hermes_turn(jid, content, hermes_media or None, source_id, conversation_id, external_id, structured_event)
     return {"received": True}
 

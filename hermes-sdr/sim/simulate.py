@@ -1,6 +1,12 @@
 import asyncio, json, os, sys, time, pathlib, httpx
 import sdr, app
 sdr.DB_PATH = pathlib.Path("/tmp/sim.db")
+# Never the production Hermes: a new SOUL is tried on a test Hermes first.
+TEST_HERMES = os.environ.get("SIM_HERMES_URL", "").rstrip("/")
+if not TEST_HERMES or "hermes_hermes" in TEST_HERMES:
+    sys.exit("SIM_HERMES_URL precisa apontar para o Hermes de teste (ex.: http://hermes_teste_hermes:8642/v1), nunca o de produção")
+app.HERMES_URL = TEST_HERMES
+app.HERMES_KEY = os.environ.get("SIM_HERMES_KEY", app.HERMES_KEY)
 BRAIN = os.environ["SDR_BRAIN_URL"]; TOKEN = os.environ["SDR_BRAIN_TOKEN"]
 LLM = "http://omniroute_omniroute:20129/v1"; KEY = os.environ["SIM_LLM_KEY"]
 MODEL = os.environ.get("SIM_MODEL", "agy/gemini-3.7-flash-high")
@@ -21,6 +27,15 @@ async def persona_reply(transcript):
 async def main():
     conv = 990500 + int(time.time()) % 1000
     session = f"test:sim:{int(time.time())}"
+    if os.environ.get("SIM_PROSPECT"):
+        # Prospecção: a business we tested answers. SIM_PROSPECT = {"negocio": {...}, "minutos": N}
+        import prospeccao
+        p = json.loads(os.environ["SIM_PROSPECT"])
+        now = time.time()
+        prospeccao.enqueue([{"numero": "5548999999999", **p.get("negocio", {})}])
+        prospeccao.update("5548999999999", status="enviado", jid="sim", conversation=conv, texto="Boa noite! Vocês estão atendendo pelo WhatsApp? Queria tirar uma dúvida.",
+                          enviado_em=now - 60 * float(p.get("minutos", 5)))
+        prospeccao.replied("sim", now)
     sdr.remember_lead(conv, "sim", FIRST)
     if os.path.exists("/tmp/ficha.json"):
         sdr.set_profile(conv, json.load(open("/tmp/ficha.json", encoding="utf-8")))
@@ -67,6 +82,8 @@ async def main():
             print("\n== escalou para o Talles; fim da simulação ==")
             break
         lead_msg = await persona_reply(transcript)
+    # What the brain would have in lead_steps: SPICED letters and the next step.
+    print("\n== registros ==\n" + json.dumps(sdr.lead_state(conv).get("registros", {}), ensure_ascii=False, indent=1), flush=True)
     json.dump(transcript, open("/tmp/sim_transcript.json", "w"), ensure_ascii=False, indent=1)
 
 asyncio.run(main())

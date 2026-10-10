@@ -1,0 +1,23 @@
+######## optout
+
+[1] LEAD: Pois não?
+    AGENTE: Obrigado pelo retorno! Sou o agente do Talles.
+    AGENTE: Na verdade não tenho nenhuma dúvida: foi um teste de tempo de resposta que o Talles faz com escritórios aqui da região. Vocês levaram cerca de 3 horas pra responder.
+    AGENTE: Não é crítica: a essa hora ninguém tem obrigação de estar olhando o WhatsApp. É justamente isso que eu resolvo. Quantas mensagens chegam pra vocês assim, depois do horário, numa semana normal?
+    [diretivas] registro:etapa_spiced=S; registro:proximo_passo=responder sobre mensagens fora do horário; registro:proximo_passo_em=2026-10-09
+
+[2] LEAD: Não tenho interesse, não me mande mais mensagem.
+    AGENTE: Entendido, não mando mais nada. Obrigado pelo retorno!
+    [diretivas] registro:opt_out=sim; registro:desfecho=perdido
+
+[3] LEAD: 👍
+    (silêncio: nada enviado; fim da simulação)
+
+== registros ==
+{
+ "etapa_spiced": "S",
+ "proximo_passo": "responder sobre mensagens fora do horário",
+ "proximo_passo_em": "2026-10-09",
+ "opt_out": "sim",
+ "desfecho": "perdido"
+}

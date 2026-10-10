@@ -1,0 +1,35 @@
+######## clinica
+
+[1] LEAD: Boa noite! Desculpe a demora, como posso ajudar?
+    AGENTE: Boa noite! Obrigado pelo retorno. Sou o agente do Talles.
+    AGENTE: Na verdade eu não tinha uma dúvida clínica: foi um teste de tempo de resposta que o Talles faz com clínicas aqui da região. Vocês levaram cerca de 2 horas para responder.
+    AGENTE: Não é uma crítica: a essa hora ninguém da equipe tem obrigação de estar olhando o WhatsApp, e é justamente isso que eu resolvo. Quantas mensagens costumam chegar pra vocês depois do horário numa semana normal?
+    [diretivas] registro:etapa_spiced=S; registro:proximo_passo=aguardar resposta sobre volume fora do horário; registro:proximo_passo_em=2026-10-09
+
+[2] LEAD: Ah, era teste então? 😅 Pior que você tem razão, nossa recepcionista sai às 18h e eu acabo olhando só quando sobra um tempo...
+
+Olha, chega fácil umas 15 mensagens por semana à noite e no fim de semana. Bastante gente procurando implante, clareamento... e várias pessoas somem antes de eu conseguir responder.
+
+Mas como funciona isso? Quanto custa?
+    AGENTE: O Talles instala um atendente de IA no próprio WhatsApp da clínica, funcionando como eu estou conversando aqui. Ele responde na hora quem chama à noite ou no fim de semana, tira dúvidas sobre implante e clareamento, faz a triagem e deixa a conversa com o resumo pronto pra sua recepcionista dar sequência de manhã.
+    AGENTE: O valor depende do volume de vocês, por isso o Talles apresenta a proposta numa conversa de 20 minutos por vídeo, já mostrando o atendente rodando com as informações da Sorriso Pleno. Inclusive tem uma condição especial de implantação para os 5 primeiros negócios.
+    AGENTE: Como segunda-feira é feriado, fica melhor pra você na terça (13/10) às 10h ou na quarta (14/10) às 14h?
+    [diretivas] registro:quem_respondeu=dono; registro:situacao=recepcionista sai às 18h, chegam 15 mensagens por semana fora do horário sobre implante e clareamento; registro:dor="várias pessoas somem antes de eu conseguir responder"; registro:etapa_spiced=P; registro:proximo_passo=escolher horário para conversa de 20 min com o Talles; registro:proximo_passo_em=2026-10-13
+
+[3] LEAD: Entendi! Bacana que já mostra funcionando.
+
+Terça e quarta fico em atendimento direto, é bem corrido pra mim. Na quinta à tarde você consegue? Umas 15h fica bom pro Talles?
+    AGENTE: Fechado, quinta-feira (15/10) às 15h. O Talles confirma por aqui.
+    [diretivas] registro:proximo_passo=conversa de 20 min com o Talles; registro:proximo_passo_em=2026-10-15T15:00; registro:etapa_spiced=fechamento; escalar:conversa de 20 min marcada=
+
+== escalou para o Talles; fim da simulação ==
+
+== registros ==
+{
+ "etapa_spiced": "fechamento",
+ "proximo_passo": "conversa de 20 min com o Talles",
+ "proximo_passo_em": "2026-10-15T15:00",
+ "quem_respondeu": "dono",
+ "situacao": "recepcionista sai às 18h, chegam 15 mensagens por semana fora do horário sobre implante e clareamento",
+ "dor": "\"várias pessoas somem antes de eu conseguir responder\""
+}

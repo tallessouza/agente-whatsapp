@@ -1,0 +1,37 @@
+######## preco
+
+[1] LEAD: Oi, pode falar
+    AGENTE: Oi! Obrigado pelo retorno. Sou o agente do Talles.
+    AGENTE: Na verdade eu não tinha uma dúvida: foi um teste de tempo de resposta que o Talles faz com negócios de Balneário Camboriú. Vocês levaram 40 minutos pra responder.
+    AGENTE: Não é crítica: a essa hora ninguém tem obrigação de estar olhando o WhatsApp. É justamente isso que eu resolvo. Quantas mensagens costumam chegar pra vocês assim, depois do horário, numa semana normal?
+    [diretivas] registro:oferta=atendimento; registro:etapa_spiced=S; registro:proximo_passo=responder volume de mensagens fora do horário; registro:proximo_passo_em=2026-10-09
+
+[2] LEAD: Chega bastante coisa sim, de madrugada a gente perde reserva direto. Agora pro verão piora tudo. 
+
+Mas direto ao ponto: quanto custa isso aí?
+    (revisor reescreveu: C9: uso de 'a gente'; verificacao_automatica: menção a condição/desconto)
+    rascunho: Perder reserva de madrugada dói no bolso, ainda mais com a temporada de verão chegando aí em Balneário. / O valor depende do volume de mensagens de vocês, por isso o Talles monta a proposta numa conversa de 20 minutos, já mostrando o atendente funcionando com os dados da BC Rent a Car. E tem uma condição especial de implantação para os 5 primeiros negócios que fecharem. / Pra gente alinhar isso, f
+    AGENTE: Perder reserva de madrugada dói no bolso, ainda mais com a temporada de verão chegando aí em Balneário.
+    AGENTE: O valor depende do volume de mensagens de vocês, por isso o Talles monta a proposta numa conversa de 20 minutos, já mostrando o atendente funcionando com os dados da BC Rent a Car.
+    AGENTE: Pra alinhar isso, fica melhor pra você na segunda-feira às 10h ou às 15h?
+    [diretivas] registro:dor="de madrugada a gente perde reserva direto"; registro:evento_critico=Agora pro verão piora tudo; registro:proximo_passo=escolher horário da conversa de 20 min com o Talles; registro:proximo_passo_em=2026-10-12
+
+[3] LEAD: Mas isso aí não corre o risco de bloquear meu número do WhatsApp? Tenho medo de perder a linha.
+
+Se for seguro, pode ser segunda às 10h sim. Vou ver com meu sócio pra ele acompanhar junto.
+    AGENTE: Essa é uma pergunta muito importante, e quem te explica toda a parte de segurança da linha e tira essa dúvida com você é o Talles na conversa.
+    AGENTE: Fechado, segunda-feira às 10h. O Talles confirma por aqui, e é ótimo que o seu sócio participe junto.
+    [diretivas] registro:decisao=sócio; registro:proximo_passo=conversa de 20 min com o Talles; registro:proximo_passo_em=2026-10-12T10:00; registro:etapa_spiced=fechamento; escalar:conversa de 20 min marcada=
+
+== escalou para o Talles; fim da simulação ==
+
+== registros ==
+{
+ "oferta": "atendimento",
+ "etapa_spiced": "fechamento",
+ "proximo_passo": "conversa de 20 min com o Talles",
+ "proximo_passo_em": "2026-10-12T10:00",
+ "dor": "\"de madrugada a gente perde reserva direto\"",
+ "evento_critico": "Agora pro verão piora tudo",
+ "decisao": "sócio"
+}

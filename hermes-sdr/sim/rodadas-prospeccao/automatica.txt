@@ -1,0 +1,7 @@
+######## automatica
+
+[1] LEAD: Olá! Obrigado por entrar em contato com a Clínica Bem Estar. Nosso horário de atendimento é de segunda a sexta, das 8h às 18h. Digite 1 para agendamento, 2 para orçamento, 3 para falar com a recepção.
+    (silêncio: nada enviado; fim da simulação)
+
+== registros ==
+{}

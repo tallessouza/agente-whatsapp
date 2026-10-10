@@ -39,7 +39,7 @@ CAPACITY_MAX_AGE_DAYS = int(os.getenv("SDR_CAPACITY_MAX_AGE_DAYS", "7"))
 # Prices, links and rules of each offer, edited by hand like capacidade.json, so
 # a price changes without touching any prompt (read by Hermes, reviewer and FUP).
 OFFERS_FILE = Path(os.getenv("SDR_OFFERS_FILE", str(SDR_DIR / "ofertas.json")))
-OFFERS = ("instalador", "raiox")
+OFFERS = ("instalador", "raiox", "atendimento")
 MEDIA_DIR = Path(os.getenv("SDR_MEDIA_DIR", str(SDR_DIR / "midia")))
 MEDIA_MAX_BYTES = int(os.getenv("SDR_MEDIA_MAX_BYTES", str(5 * 1024 * 1024)))
 NOTIFY_NUMBER = re.sub(r"\D", "", os.getenv("SDR_NOTIFY_NUMBER", ""))
@@ -372,7 +372,9 @@ def origin_from_text(text: str) -> dict[str, Any] | None:
 
 
 def remember_lead(conversation: int, jid: str, first_text: str) -> bool:
-    origin = origin_from_text(first_text)
+    import prospeccao  # late import: prospeccao imports this module
+    # A business we tested first is a prospect, whatever its first words say.
+    origin = prospeccao.origin(jid) or origin_from_text(first_text)
     with connect() as c:
         inserted = c.execute("INSERT OR IGNORE INTO sdr_leads VALUES (?,?,?,?)", (conversation, jid, json.dumps(origin, ensure_ascii=False) if origin else None, time.time())).rowcount
     if inserted:
@@ -530,6 +532,9 @@ async def add_label(conversation: int, label: str) -> None:
 async def record(conversation: int, field: str, value: str) -> None:
     with connect() as c:
         c.execute("INSERT INTO sdr_records VALUES (?,?,?,?)", (conversation, field, value, time.time()))
+    if field == "resposta_automatica" and _fold(value).strip() == "sim":
+        import prospeccao  # late import: prospeccao imports this module
+        prospeccao.automatic_reply(conversation)
     try:
         await _chatwoot("POST", f"/conversations/{conversation}/custom_attributes", json={"custom_attributes": {f"sdr_{field}": value}})
     except Exception:
