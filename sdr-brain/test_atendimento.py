@@ -32,8 +32,8 @@ class AtendimentoTests(unittest.TestCase):
                  "Numa semana normal, quantas mensagens chegam assim, depois do horário?"]
         self.assertEqual(oferta.check(parts, A, []), [])
         self.assertEqual(oferta.check(["Depende do volume de vocês, por isso o Talles monta a proposta numa conversa de 20 minutos. Fica melhor terça às 10h ou quarta às 15h?"], A, []), [])
-        self.assertEqual(oferta.check(["E tem uma condição especial de implantação para os 5 primeiros negócios que fecharem."], A, []), [])
-        # elsewhere, and with another number, it is still an invented discount
+        # since 09/10 22h there is no special condition in this offer
+        self.assertTrue(oferta.check(["E tem uma condição especial de implantação para os 5 primeiros negócios que fecharem."], A, []))
         self.assertTrue(oferta.check(["Tem uma condição especial pra você fechar hoje."], A, []))
         self.assertTrue(oferta.check(["Tem uma condição especial pra você."], {"oferta": "instalador", "ofertas": OFERTAS}, []))
 

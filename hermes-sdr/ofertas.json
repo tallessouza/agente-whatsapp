@@ -1,5 +1,5 @@
 {
-  "fonte": "OFERTA-ATUAL.md de 06/10/2026 (as seções 9 e 9.1 vencem) para o instalador, com as decisões do Talles de 07/10 (TSX-77: servidor como valor, KVM 8, R$ 120 a R$ 200/mês; Conta do Gemini = \"1 Ano de Tokens\" na Kiwify); SOUL v12 e a seção 9.1 para o raiox; atendimento: decisão do Talles em 09/10/2026 (sem preço na conversa, próximo passo = conversa de 20 min; condição especial para os 5 primeiros; painel, Instagram e roteamento de IA entram, a prospecção não)",
+  "fonte": "OFERTA-ATUAL.md de 06/10/2026 (as seções 9 e 9.1 vencem) para o instalador, com as decisões do Talles de 07/10 (TSX-77: servidor como valor, KVM 8, R$ 120 a R$ 200/mês; Conta do Gemini = \"1 Ano de Tokens\" na Kiwify); SOUL v12 e a seção 9.1 para o raiox; atendimento: decisão do Talles em 09/10/2026 (sem preço na conversa, próximo passo = conversa de 20 min; preço só na call (regra de 09/10 22h: 12 mil com 1 call na agenda, 6 mil com 2 ou mais); painel, Instagram e roteamento de IA entram, a prospecção não)",
   "atualizado_em": "2026-10-09T21:30:00-03:00",
   "instalador": {
     "nome": "Instalação do Time de IA",
@@ -137,14 +137,13 @@
     "o_que_e": "um atendente de IA no WhatsApp do próprio negócio, instalado e mantido pelo Talles: responde na hora, a qualquer hora, faz as perguntas que a equipe faria e passa a conversa pronta, com resumo, para quem fecha",
     "demonstracao": "a própria conversa: quem responde é o agente do Talles, que é como o atendente que ele instala",
     "preco": null,
-    "regra_de_preco": "não existe preço, faixa, prazo de entrega, garantia nem desconto na conversa; o Talles apresenta a proposta na conversa de 20 min",
+    "regra_de_preco": "não existe preço, faixa, prazo de entrega, garantia, desconto nem condição especial na conversa; o Talles apresenta a proposta na conversa de 20 min",
     "proximo_passo": "conversa de 20 minutos com o Talles (vídeo ou ligação), em que ele mostra o atendente com os dados do negócio e faz a proposta",
     "como_marcar": "oferecer duas opções de dia útil entre 9h e 18h, nunca em feriado; com a escolha, dizer que o Talles confirma por aqui e escalar",
     "para_quem": "negócio com equipe ou dono ocupado que recebe contato pelo WhatsApp fora do horário",
     "para_quem_nao_e": "quem já tem plantão humano à noite e está satisfeito; quem quase não recebe mensagem fora do horário; franquia com marketing central",
     "o_que_fica_no_nome_do_cliente": "o que roda (servidor e conta de IA) fica no nome da empresa; os detalhes o Talles explica na conversa",
     "saude_e_direito": "o atendente não dá orientação clínica nem jurídica: marca, filtra e passa",
-    "escassez": "existe uma condição especial de implantação para os 5 primeiros negócios que fecharem; o agente pode dizer que ela existe e que é para os 5 primeiros, nunca o valor",
     "o_que_entra": [
       "o atendente de IA no WhatsApp da empresa: responde na hora, a qualquer hora, faz as perguntas que a equipe faria e passa a conversa pronta, com resumo",
       "um painel onde a equipe vê todas as conversas, assume quando quiser e devolve para o atendente",

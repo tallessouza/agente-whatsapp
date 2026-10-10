@@ -375,9 +375,8 @@ def check(parts: list[str], context: dict[str, Any], lead_texts: list[str], sent
         issues.append("pede senha, token ou dados do servidor na conversa (só pelo formulário cifrado)")
     if _affirmed(REVENUE_PROMISE_RE, folded):
         issues.append("promessa de faturamento ou vendas")
-    # Atendimento: "condição especial para os 5 primeiros" is the real scarcity the Talles approved (09/10).
-    discount_text = re.sub(r"\bcondicao especial\b[^.!?\n]{0,60}\b5 primeiros\b", " ", folded) if offer in NO_PRICE_OFFERS else folded
-    if _affirmed(DISCOUNT_RE, discount_text):
+    # Atendimento: no special condition either since 09/10 22h (price only in the call: 12k or 6k by the calendar).
+    if _affirmed(DISCOUNT_RE, folded):
         issues.append("desconto ou cupom (não existe)")
     if _affirmed(CONTACT_PROMISE_RE, folded):
         issues.append("promete contato numa data (o agente não agenda contato; o próximo passo vai para o registro)")
