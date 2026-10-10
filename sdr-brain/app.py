@@ -591,8 +591,9 @@ async def followup_once(now: float | None = None) -> None:
             hour = datetime.fromtimestamp(current, BUSINESS_TZ).hour
             if not ATENDIMENTO_HOURS[0] <= hour < ATENDIMENTO_HOURS[1]:
                 continue  # touches to businesses only in the daytime; it fires on the next pass inside the window
-        if stage in KIWIFY_COVERED_STAGES and str(records.get("link_enviado") or "").strip().lower() == "sim":
-            # Depois do link, as primeiras horas são do recuperador da Kiwify (decisão do Talles, 06/10): sem repetir.
+        if stage in KIWIFY_COVERED_STAGES and str(records.get("checkout_iniciado") or "").strip().lower() == "sim":
+            # O recuperador da Kiwify só cobre quem pôs o telefone no checkout (correção do Talles, 09/10):
+            # quem só recebeu o link na conversa não está coberto e segue recebendo os toques.
             continue
         final = stage == stages[-1][0]
         if decided(conversation_id, stage, anchor):

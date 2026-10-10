@@ -300,15 +300,19 @@ class Acceptance(unittest.TestCase):
             when = night if cid == 84 else anchor + 400
             self.assertEqual(self.run_followups(when, state), [], cid)
 
-    def test_after_the_link_the_first_hours_are_kiwifys(self):
-        # Decisão do Talles (06/10): depois do link, 5min/30min/2h ficam com o recuperador da Kiwify; d1 continua nosso.
+    def test_kiwify_covers_only_who_started_the_checkout(self):
+        # Correção do Talles (09/10): o recuperador da Kiwify só dispara para quem pôs o telefone no checkout.
         anchor = 1790600400.0
         app.tracked.clear()
         app.tracked[88] = {"jid": "j", "last_agent_ts": anchor}
-        state = {"last_agent_ts": anchor, "last_lead_ts": anchor - 60, "lead": {"registros": {"link_enviado": "sim"}}}
-        self.assertEqual(self.run_followups(anchor + 400, state), [])
-        self.assertEqual(self.run_followups(anchor + 7800, state), [])
-        self.assertEqual(self.run_followups(anchor + 86500, state), ["d1"])
+        started = {"last_agent_ts": anchor, "last_lead_ts": anchor - 60, "lead": {"registros": {"link_enviado": "sim", "checkout_iniciado": "sim"}}}
+        self.assertEqual(self.run_followups(anchor + 400, started), [])
+        self.assertEqual(self.run_followups(anchor + 7800, started), [])
+        self.assertEqual(self.run_followups(anchor + 86500, started), ["d1"])
+        app.tracked.clear()
+        app.tracked[97] = {"jid": "j", "last_agent_ts": anchor}
+        only_link = {"last_agent_ts": anchor, "last_lead_ts": anchor - 60, "lead": {"registros": {"link_enviado": "sim"}}}
+        self.assertEqual(self.run_followups(anchor + 400, only_link), ["5min"])
 
     def test_compact_transcript(self):
         rows = app.compact_transcript([

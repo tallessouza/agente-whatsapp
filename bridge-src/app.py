@@ -981,6 +981,17 @@ async def deliver_agent_reply(jid: str, source_id: str, conversation_id: int, re
     reply_text, reply_media = extract_hermes_media(reply)
     parts, directives = sdr.parse_reply(reply_text)
     draft = list(parts)
+    if parts and prospeccao.bot_loop(conversation_id):
+        # Robot talking to robot from our number drains tokens and risks a ban: stop here.
+        logger.warning("Prospect bot loop: pausing conversation=%s", conversation_id)
+        await handover.pause(conversation_id)
+        try:
+            await sdr.private_note(conversation_id, "🤖 Prospecção pausada: o agente já respondeu "
+                                   f"{prospeccao.BOT_LOOP_LIMIT} vezes em {prospeccao.BOT_LOOP_WINDOW // 60} min. "
+                                   "Parece conversa com outro robô. Retome à mão se for gente.")
+        except Exception:
+            logger.exception("Failed to note the bot loop on conversation=%s", conversation_id)
+        return True
     if parts:
         parts, directives = await review_reply(jid, conversation_id, last_message, parts, directives)
     parts, directives = hold_profile_escalation(conversation_id, parts, directives, last_message)

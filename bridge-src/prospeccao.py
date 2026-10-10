@@ -242,6 +242,8 @@ def origin(jid: str) -> dict[str, Any] | None:
     if row.get("respondeu_em"):
         result["respondeu_em"] = local_label(row["respondeu_em"])
         result["minutos_para_responder"] = int((row["respondeu_em"] - row["enviado_em"]) // 60)
+        # Seconds tell a robot apart: 4 lines in 7 s is a template or an AI, not someone typing.
+        result["segundos_para_responder"] = int(row["respondeu_em"] - row["enviado_em"])
     if row.get("automatica"):
         result["houve_resposta_automatica"] = True
     return result
@@ -340,6 +342,22 @@ def automatic_reply(conversation: int, now: float | None = None) -> int | None:
     if not PROSPECT_PITCH_SILENT:
         return None  # an automatic greeting is not an answer: no follow-up
     return schedule_pitch(conversation, row["enviado_em"], automatic=True, now=now)
+
+
+BOT_LOOP_WINDOW = int(os.getenv("PROSPECT_BOT_LOOP_WINDOW_SECONDS", "600"))
+BOT_LOOP_LIMIT = int(os.getenv("PROSPECT_BOT_LOOP_LIMIT", "4"))
+
+
+def bot_loop(conversation: int, now: float | None = None) -> bool:
+    """A prospect conversation where the agent already replied BOT_LOOP_LIMIT times in BOT_LOOP_WINDOW:
+    the other side is probably a bot answering in seconds. The bridge pauses before sending again."""
+    now = time.time() if now is None else now
+    with connect() as c:
+        if not c.execute("SELECT 1 FROM sdr_prospects WHERE conversation=?", (conversation,)).fetchone():
+            return False
+        replies = c.execute("SELECT COUNT(*) FROM sdr_corrections WHERE conversation=? AND created>=?",
+                            (conversation, now - BOT_LOOP_WINDOW)).fetchone()[0]
+    return replies >= BOT_LOOP_LIMIT
 
 
 def next_gap() -> float:

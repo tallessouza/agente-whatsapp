@@ -166,6 +166,22 @@ class ProspeccaoTests(unittest.TestCase):
         self.assertEqual(row["conversation"], 99)
         self.assertEqual(sdr.pending_followups(99), [])   # no pitch for the silent ones
 
+    def test_bot_loop_guard_only_for_prospects(self):
+        now = ts(2026, 10, 13, 19, 30)
+        prospeccao.enqueue([{"numero": "5548999990030"}])
+        prospeccao.update("5548999990030", status="enviado", enviado_em=now - 600, conversation=130)
+        with sdr.connect() as c:
+            for i in range(3):
+                c.execute("INSERT INTO sdr_corrections(conversation,draft,sent,reason,created) VALUES (?,?,?,?,?)", (130, "[]", "[]", "x", now - 60 * i))
+                c.execute("INSERT INTO sdr_corrections(conversation,draft,sent,reason,created) VALUES (?,?,?,?,?)", (131, "[]", "[]", "x", now - 60 * i))
+        self.assertFalse(prospeccao.bot_loop(130, now))          # 3 replies: still fine
+        with sdr.connect() as c:
+            c.execute("INSERT INTO sdr_corrections(conversation,draft,sent,reason,created) VALUES (?,?,?,?,?)", (130, "[]", "[]", "x", now))
+            c.execute("INSERT INTO sdr_corrections(conversation,draft,sent,reason,created) VALUES (?,?,?,?,?)", (131, "[]", "[]", "x", now))
+        self.assertTrue(prospeccao.bot_loop(130, now))           # 4 in 10 min: pause
+        self.assertFalse(prospeccao.bot_loop(131, now))          # not a prospect: never paused by this
+        self.assertFalse(prospeccao.bot_loop(130, now + 3600))   # old replies do not count
+
     def test_claim_is_atomic_never_twice(self):
         prospeccao.enqueue([{"numero": "5548999990020"}])
         self.assertTrue(prospeccao.claim("5548999990020"))
