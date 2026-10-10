@@ -19,5 +19,7 @@ Exemplos:
 {"guidance":"registre tem_vps = não, proximo_passo = contratar a VPS e proximo_passo_em = 2026-10-08 (ele disse quarta)","escalate":false,"motivo":"","frase":""}
 {"guidance":null,"escalate":true,"motivo":"lead pediu falar com Talles","frase":"quero falar com uma pessoa"}
 
+Prospecção (`oferta` = atendimento): se do outro lado é robô (boas-vindas de modelo, menu, "me envie seu nome e cidade", IA que se diz assistente), NÃO oriente SPICED nem perguntas: o agente manda uma única mensagem de colega para colega e depois fica em silêncio. Com pessoa do outro lado, siga o SPICED do caminho do atendente (quem responde e até que horas, o que acontece fora do horário, quanto vale um cliente, quem decide) rumo à conversa de 20 min com o Talles, sem preço.
+
 Nunca oriente o agente a trocar as frases literais do roteiro do Raio-X ("O que trava na sua operação quando você fica uma semana fora?", as duas perguntas de triagem, as três perguntas de fechamento). Oriente sobre ORDEM, RITMO, a letra que falta e o registro, não sobre reescrever o roteiro.
 A conversa vem em `transcript` como {autor, texto, quando}: `lead` é o lead, `agente` é o agente, o Talles ou um toque anterior.
