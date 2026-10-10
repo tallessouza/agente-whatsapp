@@ -1212,13 +1212,64 @@ async def followup_worker() -> None:
         await asyncio.sleep(30)
 
 
+# WA-AKG: a second linked device of the SAME WhatsApp number, used only as a
+# fallback for the prospect test when Evolution is down (Talles, 09/10).
+WAAKG_URL = os.getenv("WAAKG_URL", "").rstrip("/")
+WAAKG_SESSION = os.getenv("WAAKG_SESSION", "")
+WAAKG_API_KEY = os.getenv("WAAKG_API_KEY", "")
+
+
+def waakg_enabled() -> bool:
+    return bool(WAAKG_URL and WAAKG_SESSION and WAAKG_API_KEY)
+
+
 async def check_whatsapp(number: str) -> dict[str, Any] | None:
-    """Evolution's /user/check: whether the number has WhatsApp, and its real JID (Brazilian JIDs may drop the 9)."""
+    """Whether the number has WhatsApp, and its real JID (Brazilian JIDs may drop the 9): Evolution, else WA-AKG."""
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            r = await client.post(f"{EVOLUTION_URL}/user/check", headers={"apikey": EVOLUTION_API_KEY}, json={"number": [number], "formatJid": True})
+            r.raise_for_status()
+            users = ((r.json() or {}).get("data") or {}).get("Users") or []
+        return users[0] if users else None
+    except Exception:
+        if not waakg_enabled():
+            raise
+        logger.warning("Evolution check failed; trying WA-AKG number=%s", number)
+        async with httpx.AsyncClient(timeout=30) as client:
+            r = await client.post(f"{WAAKG_URL}/chat/{WAAKG_SESSION}/check", headers={"X-API-Key": WAAKG_API_KEY}, json={"numbers": [number]})
+            r.raise_for_status()
+            results = ((r.json() or {}).get("data") or {}).get("results") or []
+        if not results:
+            return None
+        return {"IsInWhatsapp": bool(results[0].get("exists")), "JID": results[0].get("jid") or "", "LID": None, "VerifiedName": ""}
+
+
+async def send_waakg(jid: str, text: str) -> None:
+    """Send one text through WA-AKG and register its id as our own echo, so Evolution never reads it as a human takeover."""
+    from urllib.parse import quote
     async with httpx.AsyncClient(timeout=30) as client:
-        r = await client.post(f"{EVOLUTION_URL}/user/check", headers={"apikey": EVOLUTION_API_KEY}, json={"number": [number], "formatJid": True})
+        r = await client.post(f"{WAAKG_URL}/messages/{WAAKG_SESSION}/{quote(jid, safe='')}/send",
+                              headers={"X-API-Key": WAAKG_API_KEY}, json={"message": text})
         r.raise_for_status()
-        users = ((r.json() or {}).get("data") or {}).get("Users") or []
-    return users[0] if users else None
+        data = (r.json() or {}).get("data") or {}
+    message_id = ((data.get("key") or {}).get("id") if isinstance(data, dict) else None) or (data.get("id") if isinstance(data, dict) else None)
+    if message_id:
+        handover.outbound_id(str(message_id))
+    else:
+        logger.warning("WA-AKG send returned no message id jid=%s; an echo may pause the conversation", jid)
+
+
+async def send_prospect_text(jid: str, text: str) -> str:
+    """Evolution first (no outbox retry, so a failure never sends twice); WA-AKG as the fallback."""
+    try:
+        await send_evolution(jid_number(jid), text, retry=True)
+        return "evolution"
+    except Exception:
+        if not waakg_enabled():
+            raise
+        logger.warning("Evolution send failed; sending the prospect test through WA-AKG jid=%s", jid)
+        await send_waakg(jid, text)
+        return "wa-akg"
 
 
 async def prospect_once(now: float | None = None, numero: str | None = None) -> str:
@@ -1254,9 +1305,12 @@ async def prospect_once(now: float | None = None, numero: str | None = None) -> 
         source_id, conversation_id = await ensure_conversation(jid, str(data.get("nome") or check.get("VerifiedName") or jid))
         # enviado_em before the send: an automatic greeting can arrive within a second.
         prospeccao.update(number, status="enviando", jid=jid, lid=lid, conversation=conversation_id, nome_whatsapp=check.get("VerifiedName") or None, texto=text, enviado_em=now)
-        await send_presence(jid_number(jid), "composing")
+        try:
+            await send_presence(jid_number(jid), "composing")
+        except Exception:
+            logger.warning("Presence failed before prospect send jid=%s", jid)
         await asyncio.sleep(random.uniform(2.0, 6.0))
-        await send_evolution(jid_number(jid), text)
+        channel = await send_prospect_text(jid, text)
     except Exception as exc:
         logger.exception("Prospect send failed number=%s", number)
         prospeccao.update(number, status="erro", erro="envio: " + str(exc)[:200], enviado_em=None)
@@ -1272,7 +1326,7 @@ async def prospect_once(now: float | None = None, numero: str | None = None) -> 
         await sdr.private_note(conversation_id, "🔎 Prospecção: teste de atendimento enviado.\n" + resumo)
     except Exception:
         logger.exception("Prospect Chatwoot bookkeeping failed conversation=%s", conversation_id)
-    logger.info("Prospect sent number=%s conversation=%s", number, conversation_id)
+    logger.info("Prospect sent number=%s conversation=%s channel=%s", number, conversation_id, channel)
     return "enviado"
 
 

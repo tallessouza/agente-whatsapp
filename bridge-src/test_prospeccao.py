@@ -1,4 +1,5 @@
 import asyncio
+import unittest.mock
 import tempfile
 import unittest
 from datetime import datetime
@@ -145,6 +146,26 @@ class ProspeccaoTests(unittest.TestCase):
         self.assertEqual(row["status"], "enviado")
         self.assertEqual(row["conversation"], 99)
         self.assertEqual(len(sdr.pending_followups(99)), 1)
+
+    def test_fallback_to_waakg_registers_the_echo(self):
+        response = unittest.mock.Mock()
+        response.raise_for_status = lambda: None
+        response.json = lambda: {"status": True, "data": {"key": {"id": "WAAKG123", "remoteJid": "554899990009@s.whatsapp.net"}}}
+        client = AsyncMock()
+        client.__aenter__.return_value.post = AsyncMock(return_value=response)
+        with patch.object(app, "WAAKG_URL", "http://dell:3000/api"), patch.object(app, "WAAKG_SESSION", "s1"), \
+             patch.object(app, "WAAKG_API_KEY", "k"), patch.object(app, "send_evolution", AsyncMock(side_effect=RuntimeError("evo off"))), \
+             patch.object(app.httpx, "AsyncClient", return_value=client):
+            channel = asyncio.run(app.send_prospect_text("554899990009@s.whatsapp.net", "Boa noite!"))
+        self.assertEqual(channel, "wa-akg")
+        self.assertTrue(handover.is_echo("WAAKG123"))
+        url = client.__aenter__.return_value.post.await_args.args[0]
+        self.assertEqual(url, "http://dell:3000/api/messages/s1/554899990009%40s.whatsapp.net/send")
+
+    def test_no_fallback_without_waakg_config(self):
+        with patch.object(app, "WAAKG_URL", ""), patch.object(app, "send_evolution", AsyncMock(side_effect=RuntimeError("evo off"))):
+            with self.assertRaises(RuntimeError):
+                asyncio.run(app.send_prospect_text("554899990009@s.whatsapp.net", "Boa noite!"))
 
     def test_number_without_whatsapp_is_skipped(self):
         prospeccao.enqueue([{"numero": "554733330000"}])
