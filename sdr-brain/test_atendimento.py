@@ -43,5 +43,18 @@ class AtendimentoTests(unittest.TestCase):
         self.assertFalse(oferta.price_without_link(["A instalação fica pronta rápido."], A))
 
 
+class AtendimentoSequenceTests(unittest.TestCase):
+    def test_four_touches_only_for_atendimento(self):
+        import app
+        self.assertEqual([s for s, _ in app.stages_for("atendimento", False)], ["2h", "d1", "d3", "d6"])
+        self.assertIsNone(app.due_stage(1800, False, "atendimento"))          # no 5min/30min touch
+        self.assertEqual(app.due_stage(7200, False, "atendimento"), "2h")
+        self.assertEqual(app.due_stage(4 * 86400, False, "atendimento"), "d3")
+        self.assertEqual(app.due_stage(10 * 86400, False, "atendimento"), "d6")
+        # the other offers keep their sequence
+        self.assertEqual(app.due_stage(1800, False, "instalador"), "30min")
+        self.assertEqual(app.due_stage(1800, False), "30min")
+
+
 if __name__ == "__main__":
     unittest.main()

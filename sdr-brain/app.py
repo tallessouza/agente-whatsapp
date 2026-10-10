@@ -38,6 +38,16 @@ STAGES = [("5min", 300), ("30min", 1800), ("2h", 7200), ("d1", 86400)]
 # Checkpoints que o recuperador da Kiwify cobre depois do link de compra (carrinho, Pix, até 30 min).
 KIWIFY_COVERED_STAGES = {"5min", "30min", "2h"}
 POST_PRICE_STAGE = ("d4", 345600)
+# Prospecção (oferta atendimento): only whoever answered gets touches, and only these four,
+# each breaking one objection of the Hormozi framework (fup.md); never at night (Talles, 09/10).
+ATENDIMENTO_STAGES = [("2h", 7200), ("d1", 86400), ("d3", 259200), ("d6", 518400)]
+ATENDIMENTO_HOURS = (9, 20)
+
+
+def stages_for(offer: str | None, post_price: bool) -> list[tuple[str, int]]:
+    if offer == "atendimento":
+        return ATENDIMENTO_STAGES
+    return STAGES + ([POST_PRICE_STAGE] if post_price else [])
 # After the lead replies inside a sequence, a touch needs this much silence
 # (from anyone) before it may fire; otherwise the conversation is still going.
 QUIET_AFTER_REPLY_SECONDS = int(os.getenv("SDR_QUIET_AFTER_REPLY_SECONDS", "1800"))
@@ -315,13 +325,13 @@ def in_business_hours(ts: float) -> bool:
     return BUSINESS_START <= datetime.fromtimestamp(ts, BUSINESS_TZ).hour < BUSINESS_END
 
 
-def due_stage(age: float, post_price: bool) -> str | None:
+def due_stage(age: float, post_price: bool, offer: str | None = None) -> str | None:
     """Latest checkpoint already reached in this silence window, if any.
 
     Only the latest one is decided: after downtime or overnight, older
     checkpoints are skipped instead of bursting several touches at once.
     """
-    stages = STAGES + ([POST_PRICE_STAGE] if post_price else [])
+    stages = stages_for(offer, post_price)
     reached = [name for name, delay in stages if age >= delay]
     return reached[-1] if reached else None
 
@@ -572,10 +582,15 @@ async def followup_once(now: float | None = None) -> None:
             LOGGER.warning("FUP sequence restarted conversation=%s (lead replied, agent answered)", conversation_id)
             seq = (last_agent, None)
         anchor = seq[0]
-        stages = STAGES + ([POST_PRICE_STAGE] if records.get("preco_dado") else [])
-        stage = due_stage(current - anchor, bool(records.get("preco_dado")))
+        offer_now = oferta.current_offer(state.get("context") or {}) or records.get("oferta")
+        stages = stages_for(offer_now, bool(records.get("preco_dado")))
+        stage = due_stage(current - anchor, bool(records.get("preco_dado")), offer_now)
         if stage is None:
             continue
+        if offer_now == "atendimento":
+            hour = datetime.fromtimestamp(current, BUSINESS_TZ).hour
+            if not ATENDIMENTO_HOURS[0] <= hour < ATENDIMENTO_HOURS[1]:
+                continue  # touches to businesses only in the daytime; it fires on the next pass inside the window
         if stage in KIWIFY_COVERED_STAGES and str(records.get("link_enviado") or "").strip().lower() == "sim":
             # Depois do link, as primeiras horas são do recuperador da Kiwify (decisão do Talles, 06/10): sem repetir.
             continue

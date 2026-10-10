@@ -1259,16 +1259,35 @@ async def send_waakg(jid: str, text: str) -> None:
         logger.warning("WA-AKG send returned no message id jid=%s; an echo may pause the conversation", jid)
 
 
+class ProspectNotSent(Exception):
+    """The test surely did not leave (no connection, or the gateway said it is down): safe to queue again."""
+
+
+def surely_not_sent(exc: Exception) -> bool:
+    """Only a refused connection or a 503 proves the message did not go out. A timeout or another
+    error may hide a delivered message, so it must never trigger a second send."""
+    if isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout)):
+        return True
+    return isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 503
+
+
 async def send_prospect_text(jid: str, text: str) -> str:
-    """Evolution first (no outbox retry, so a failure never sends twice); WA-AKG as the fallback."""
+    """Evolution first (no outbox retry); WA-AKG only when Evolution surely did not send, so it is never twice."""
     try:
         await send_evolution(jid_number(jid), text, retry=True)
         return "evolution"
-    except Exception:
-        if not waakg_enabled():
+    except Exception as exc:
+        if not surely_not_sent(exc):
             raise
-        logger.warning("Evolution send failed; sending the prospect test through WA-AKG jid=%s", jid)
-        await send_waakg(jid, text)
+        if not waakg_enabled():
+            raise ProspectNotSent(str(exc)) from exc
+        logger.warning("Evolution unreachable; sending the prospect test through WA-AKG jid=%s", jid)
+        try:
+            await send_waakg(jid, text)
+        except Exception as waakg_exc:
+            if surely_not_sent(waakg_exc):
+                raise ProspectNotSent(str(waakg_exc)) from waakg_exc
+            raise
         return "wa-akg"
 
 
@@ -1281,15 +1300,18 @@ async def prospect_once(now: float | None = None, numero: str | None = None) -> 
         if not prospeccao.in_window(local): return "fora_da_janela"
         if now < float(prospeccao.kv_get("proximo_envio") or 0): return "intervalo"
     if prospeccao.sent_today(now) >= prospeccao.daily_cap(now): return "teto_do_dia"
-    item = prospeccao.next_queued(numero)
+    item = prospeccao.next_queued(numero, None if numero else local)
     if not item: return "fila_vazia"
     number, data = item
+    if not prospeccao.claim(number, now):
+        return "ja_em_andamento"  # someone else claimed it: never twice
     prospeccao.kv_set("proximo_envio", str(now + prospeccao.next_gap()))
     try:
         check = await check_whatsapp(number)
     except Exception as exc:
         logger.exception("Prospect check failed number=%s", number)
-        prospeccao.update(number, status="erro", erro="check: " + str(exc)[:200])
+        # Nothing was sent: back to the queue for the next pass.
+        prospeccao.update(number, status="fila", erro="check: " + str(exc)[:200])
         return "erro"
     if not check or not check.get("IsInWhatsapp"):
         prospeccao.update(number, status="sem_whatsapp")
@@ -1311,14 +1333,20 @@ async def prospect_once(now: float | None = None, numero: str | None = None) -> 
             logger.warning("Presence failed before prospect send jid=%s", jid)
         await asyncio.sleep(random.uniform(2.0, 6.0))
         channel = await send_prospect_text(jid, text)
+    except ProspectNotSent as exc:
+        logger.warning("Prospect not sent (gateway down), back to the queue number=%s", number)
+        prospeccao.update(number, status="fila", erro="sem envio: " + str(exc)[:200], enviado_em=None)
+        return "erro"
     except Exception as exc:
+        # Unknown outcome: it may have been delivered. Never retried (at most once).
         logger.exception("Prospect send failed number=%s", number)
-        prospeccao.update(number, status="erro", erro="envio: " + str(exc)[:200], enviado_em=None)
+        prospeccao.update(number, status="erro", erro="envio incerto: " + str(exc)[:200])
         return "erro"
     current = prospeccao.for_jid(jid)
     if current and current.get("status") == "enviando":  # a reply may already have marked it
         prospeccao.update(number, status="enviado")
-    prospeccao.schedule_pitch(conversation_id, now, now=now)
+    if prospeccao.PROSPECT_PITCH_SILENT:  # off: follow-ups only for whoever answered (Talles, 09/10)
+        prospeccao.schedule_pitch(conversation_id, now, now=now)
     try:
         await add_chatwoot_message(source_id, conversation_id, text, outgoing=True, suppress_evolution=True)
         await sdr.add_label(conversation_id, prospeccao.PROSPECT_LABEL)
@@ -1617,6 +1645,14 @@ async def prospect_queue(request: Request):
 async def prospect_status(request: Request):
     if (e:=_sdr_auth(request)): return e
     return prospeccao.stats()
+
+
+@app.post("/prospeccao/atualizar")
+async def prospect_refresh(request: Request):
+    """Refresh the data of businesses still queued (same body as /prospeccao/fila)."""
+    if (e:=_sdr_auth(request)): return e
+    p = await request.json()
+    return {"atualizados": prospeccao.refresh_data(p.get("negocios") or [])}
 
 
 @app.post("/prospeccao/pausar")

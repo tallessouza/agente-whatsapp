@@ -1,5 +1,6 @@
 import asyncio
 import unittest.mock
+import httpx
 import tempfile
 import unittest
 from datetime import datetime
@@ -109,22 +110,40 @@ class ProspeccaoTests(unittest.TestCase):
         sent = ts(2026, 10, 13, 19, 40)
         self.assertEqual(prospeccao.when_label(sent, ts(2026, 10, 14, 10, 0)), "ontem às 19h40")
 
-    def test_automatic_greeting_brings_the_pitch_back(self):
+    def test_automatic_greeting_is_marked_and_gets_no_follow_up(self):
         sent = ts(2026, 10, 13, 19, 5)
         prospeccao.enqueue([{"numero": "5548999990003", "nome": "Escritório C"}])
         prospeccao.update("5548999990003", status="enviado", enviado_em=sent, jid="554899990003@s.whatsapp.net", conversation=88)
-        prospeccao.schedule_pitch(88, sent, now=sent)
         prospeccao.replied("554899990003@s.whatsapp.net", ts=sent + 2)
-        sdr.cancel_followups(88, "lead_message")          # what the bridge does on any incoming message
-        self.assertEqual(sdr.pending_followups(88), [])
         with patch.object(sdr, "_chatwoot", AsyncMock()):
             asyncio.run(sdr.record(88, "resposta_automatica", "sim"))
-        pending = sdr.pending_followups(88)
-        self.assertEqual(len(pending), 1)
-        self.assertIn("menu automático", pending[0][3])
+        self.assertEqual(sdr.pending_followups(88), [])   # follow-up only for whoever answered (Talles, 09/10)
         row = prospeccao.for_jid("554899990003@s.whatsapp.net")
         self.assertEqual(row["status"], "automatica")
         self.assertIsNone(row["respondeu_em"])
+        with patch.object(prospeccao, "PROSPECT_PITCH_SILENT", True), patch.object(sdr, "_chatwoot", AsyncMock()):
+            asyncio.run(sdr.record(88, "resposta_automatica", "sim"))
+        self.assertIn("menu automático", sdr.pending_followups(88)[0][3])
+
+    def test_weekend_and_holiday_only_for_businesses_open_then(self):
+        prospeccao.enqueue([
+            {"numero": "5548999990010", "nome": "Abre só dia útil", "dias_abertos": [0, 1, 2, 3, 4]},
+            {"numero": "5548999990011", "nome": "Abre sábado", "dias_abertos": [0, 1, 2, 3, 4, 5]},
+            {"numero": "5548999990012", "nome": "Abre domingo", "dias_abertos": [0, 1, 2, 3, 4, 5, 6]},
+            {"numero": "5548999990013", "nome": "Sem horário"},
+        ])
+        tuesday = datetime(2026, 10, 13, 19, 0, tzinfo=TZ)
+        saturday = datetime(2026, 10, 10, 10, 0, tzinfo=TZ)
+        sunday = datetime(2026, 10, 11, 10, 0, tzinfo=TZ)
+        holiday = datetime(2026, 10, 12, 10, 0, tzinfo=TZ)
+        self.assertEqual(prospeccao.next_queued(local=tuesday)[1]["nome"], "Abre só dia útil")
+        self.assertEqual(prospeccao.next_queued(local=saturday)[1]["nome"], "Abre sábado")
+        self.assertEqual(prospeccao.next_queued(local=sunday)[1]["nome"], "Abre domingo")
+        self.assertEqual(prospeccao.next_queued(local=holiday)[1]["nome"], "Abre domingo")
+        self.assertTrue(prospeccao.in_window(holiday))
+        self.assertTrue(prospeccao.in_window(saturday))
+        self.assertEqual(prospeccao.refresh_data([{"numero": "5548999990013", "nome": "Sem horário", "dias_abertos": [5]}]), 1)
+        self.assertEqual(prospeccao.next_queued("5548999990013")[1]["dias_abertos"], [5])
 
     def test_prospect_once_respects_switch_window_gap_and_sends(self):
         prospeccao.enqueue([{"numero": "5548999990004", "nome": "Locadora D"}])
@@ -145,7 +164,52 @@ class ProspeccaoTests(unittest.TestCase):
         row = prospeccao.for_jid("1234@lid")
         self.assertEqual(row["status"], "enviado")
         self.assertEqual(row["conversation"], 99)
-        self.assertEqual(len(sdr.pending_followups(99)), 1)
+        self.assertEqual(sdr.pending_followups(99), [])   # no pitch for the silent ones
+
+    def test_claim_is_atomic_never_twice(self):
+        prospeccao.enqueue([{"numero": "5548999990020"}])
+        self.assertTrue(prospeccao.claim("5548999990020"))
+        self.assertFalse(prospeccao.claim("5548999990020"))
+        self.assertIsNone(prospeccao.next_queued())
+
+    def _send_env(self, send_side_effect, number="5548999990021"):
+        prospeccao.enqueue([{"numero": number, "nome": "X"}])
+        check = {"IsInWhatsapp": True, "JID": "554899990021@s.whatsapp.net", "LID": None, "VerifiedName": ""}
+        return [patch.object(prospeccao, "PROSPECT_ENABLED", True),
+                patch.object(app, "check_whatsapp", AsyncMock(return_value=check)),
+                patch.object(app, "ensure_conversation", AsyncMock(return_value=("src", 21))),
+                patch.object(app, "send_presence", AsyncMock()),
+                patch.object(app, "send_evolution", AsyncMock(side_effect=send_side_effect)),
+                patch.object(app, "add_chatwoot_message", AsyncMock()), patch.object(sdr, "add_label", AsyncMock()),
+                patch.object(sdr, "private_note", AsyncMock()), patch.object(app.asyncio, "sleep", AsyncMock())]
+
+    def _run(self, patches, now):
+        for p in patches:
+            p.start()
+        try:
+            return asyncio.run(app.prospect_once(now=now))
+        finally:
+            for p in patches:
+                p.stop()
+
+    def test_uncertain_send_is_never_retried(self):
+        night = ts(2026, 10, 13, 19, 0)
+        with patch.object(app, "WAAKG_URL", "http://dell:3000/api"), patch.object(app, "WAAKG_SESSION", "s"), patch.object(app, "WAAKG_API_KEY", "k"), \
+             patch.object(app, "send_waakg", AsyncMock()) as waakg:
+            result = self._run(self._send_env(httpx.ReadTimeout("timeout")), night)
+            waakg.assert_not_awaited()                       # a timeout may hide a delivered message
+        self.assertEqual(result, "erro")
+        row = prospeccao.for_jid("554899990021@s.whatsapp.net")
+        self.assertEqual(row["status"], "erro")
+        self.assertIsNone(prospeccao.next_queued())          # not back in the queue
+        self.assertEqual(self._run(self._send_env(None), night + 3600), "fila_vazia")
+
+    def test_surely_not_sent_goes_back_to_the_queue_once(self):
+        night = ts(2026, 10, 13, 19, 0)
+        with patch.object(app, "WAAKG_URL", ""):
+            result = self._run(self._send_env(httpx.ConnectError("refused")), night)
+        self.assertEqual(result, "erro")
+        self.assertEqual(prospeccao.next_queued()[0], "5548999990021")   # nothing left: safe to try again
 
     def test_fallback_to_waakg_registers_the_echo(self):
         response = unittest.mock.Mock()
@@ -154,7 +218,7 @@ class ProspeccaoTests(unittest.TestCase):
         client = AsyncMock()
         client.__aenter__.return_value.post = AsyncMock(return_value=response)
         with patch.object(app, "WAAKG_URL", "http://dell:3000/api"), patch.object(app, "WAAKG_SESSION", "s1"), \
-             patch.object(app, "WAAKG_API_KEY", "k"), patch.object(app, "send_evolution", AsyncMock(side_effect=RuntimeError("evo off"))), \
+             patch.object(app, "WAAKG_API_KEY", "k"), patch.object(app, "send_evolution", AsyncMock(side_effect=httpx.ConnectError("evo off"))), \
              patch.object(app.httpx, "AsyncClient", return_value=client):
             channel = asyncio.run(app.send_prospect_text("554899990009@s.whatsapp.net", "Boa noite!"))
         self.assertEqual(channel, "wa-akg")
@@ -163,8 +227,8 @@ class ProspeccaoTests(unittest.TestCase):
         self.assertEqual(url, "http://dell:3000/api/messages/s1/554899990009%40s.whatsapp.net/send")
 
     def test_no_fallback_without_waakg_config(self):
-        with patch.object(app, "WAAKG_URL", ""), patch.object(app, "send_evolution", AsyncMock(side_effect=RuntimeError("evo off"))):
-            with self.assertRaises(RuntimeError):
+        with patch.object(app, "WAAKG_URL", ""), patch.object(app, "send_evolution", AsyncMock(side_effect=httpx.ConnectError("evo off"))):
+            with self.assertRaises(app.ProspectNotSent):
                 asyncio.run(app.send_prospect_text("554899990009@s.whatsapp.net", "Boa noite!"))
 
     def test_number_without_whatsapp_is_skipped(self):

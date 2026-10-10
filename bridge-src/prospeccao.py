@@ -27,8 +27,11 @@ PROSPECT_TEST_TEXTS = [t.strip() for t in os.getenv(
     "|Olá, {saudacao_min}! Consigo falar com alguém por aqui? Tenho uma dúvida."
     "|{saudacao}, tudo bem? Vocês respondem pelo WhatsApp? Queria uma informação.",
 ).split("|") if t.strip()]
-# "dias@HH:MM-HH:MM" separated by commas; days 0=segunda .. 6=domingo, ranges allowed.
-PROSPECT_WINDOWS = os.getenv("PROSPECT_WINDOWS", "0-4@18:30-21:00")
+# "dias@HH:MM-HH:MM" separated by commas; days 0=segunda .. 6=domingo and 7=feriado, ranges allowed.
+# On Saturday only businesses open on Saturday get the test; on Sunday and holidays, only those open on Sunday.
+PROSPECT_WINDOWS = os.getenv("PROSPECT_WINDOWS", "0-4@18:30-21:00,5@09:30-12:30,6@10:00-13:00,7@10:00-13:00")
+# Follow-up only for whoever answered (Talles, 09/10): the silent ones get no pitch. Kept as a switch.
+PROSPECT_PITCH_SILENT = os.getenv("PROSPECT_PITCH_SILENT", "0") == "1"
 # Ramp per sending day (1st day 40, then 60...; the last value repeats) and a random
 # gap between sends: a regular burst from an unofficial WhatsApp session gets banned.
 PROSPECT_RAMP = [int(v) for v in os.getenv("PROSPECT_RAMP", "40,60,80,100,120").split(",") if v.strip()]
@@ -41,7 +44,7 @@ PROSPECT_SKIP_DATES = {d.strip() for d in os.getenv("PROSPECT_SKIP_DATES", "2026
 OFFER = "atendimento"
 # What the agent may know about the business (from the Maps list and the site enrichment).
 FIELDS = ("nome", "nicho", "categoria", "cidade", "uf", "bairro", "nota", "avaliacoes", "site", "instagram", "horario_resumo",
-          "servicos", "site_leva_pro_whatsapp", "dossie", "gancho")
+          "servicos", "site_leva_pro_whatsapp", "dossie", "gancho", "dias_abertos")
 WEEKDAY_NAMES = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"]
 WEEKDAY_ON = ["na segunda", "na terça", "na quarta", "na quinta", "na sexta", "no sábado", "no domingo"]
 
@@ -118,10 +121,26 @@ def _windows(spec: str) -> list[tuple[set[int], int, int]]:
 
 
 def in_window(local: datetime, spec: str | None = None) -> bool:
-    if local.strftime("%Y-%m-%d") in PROSPECT_SKIP_DATES:
-        return False
     minute = local.hour * 60 + local.minute
-    return any(local.weekday() in days and start <= minute < end for days, start, end in _windows(spec or PROSPECT_WINDOWS))
+    day = day_key(local)
+    return any(day in days and start <= minute < end for days, start, end in _windows(spec or PROSPECT_WINDOWS))
+
+
+def day_key(local: datetime) -> int:
+    """0..6 for the weekday, 7 for a national holiday."""
+    return 7 if local.strftime("%Y-%m-%d") in PROSPECT_SKIP_DATES else local.weekday()
+
+
+def open_on(data: dict[str, Any], local: datetime) -> bool:
+    """Weekday: everyone. Saturday: open on Saturday. Sunday or holiday: open on Sunday (the proxy for working
+    on holidays). No opening hours known: weekdays only."""
+    day = day_key(local)
+    if day <= 4:
+        return True
+    days = data.get("dias_abertos")
+    if not isinstance(days, list):
+        return False
+    return (5 in days) if day == 5 else (6 in days)
 
 
 def day_start(now: float) -> float:
@@ -142,13 +161,41 @@ def sent_today(now: float | None = None) -> int:
         return c.execute("SELECT COUNT(*) FROM sdr_prospects WHERE enviado_em>=?", (day_start(now),)).fetchone()[0]
 
 
-def next_queued(numero: str | None = None) -> tuple[str, dict[str, Any]] | None:
+def next_queued(numero: str | None = None, local: datetime | None = None) -> tuple[str, dict[str, Any]] | None:
+    """The next queued business; with `local`, the first one open that day (weekends and holidays)."""
     with connect() as c:
         if numero:
             row = c.execute("SELECT numero,dados FROM sdr_prospects WHERE numero=? AND status='fila'", (numero,)).fetchone()
-        else:
-            row = c.execute("SELECT numero,dados FROM sdr_prospects WHERE status='fila' ORDER BY enfileirado LIMIT 1").fetchone()
-    return (row[0], json.loads(row[1])) if row else None
+            return (row[0], json.loads(row[1])) if row else None
+        rows = c.execute("SELECT numero,dados FROM sdr_prospects WHERE status='fila' ORDER BY enfileirado").fetchall()
+    for number, raw in rows:
+        data = json.loads(raw)
+        if local is None or open_on(data, local):
+            return number, data
+    return None
+
+
+def refresh_data(items: list[dict[str, Any]]) -> int:
+    """Update the data of businesses still in the queue (e.g. opening days added after the first load)."""
+    changed = 0
+    with connect() as c:
+        for item in items or []:
+            number = normalize_number((item or {}).get("telefone_e164") or (item or {}).get("numero"))
+            if not number:
+                continue
+            data = {k: item.get(k) for k in FIELDS if item.get(k) not in (None, "")}
+            changed += c.execute("UPDATE sdr_prospects SET dados=? WHERE numero=? AND status='fila'",
+                                 (json.dumps(data, ensure_ascii=False), number)).rowcount
+    return changed
+
+
+def claim(numero: str, now: float | None = None) -> bool:
+    """Atomic fila → processando: only the caller that wins sends, so a number never gets the test twice
+    (worker and manual send racing, restarts). A crash leaves it in 'processando': at most once, never twice."""
+    now = time.time() if now is None else now
+    with connect() as c:
+        return c.execute("UPDATE sdr_prospects SET status='processando', erro=NULL WHERE numero=? AND status='fila'",
+                         (numero,)).rowcount == 1
 
 
 UPDATABLE = {"status", "jid", "lid", "conversation", "nome_whatsapp", "texto", "enviado_em", "respondeu_em", "automatica", "erro"}
@@ -290,6 +337,8 @@ def automatic_reply(conversation: int, now: float | None = None) -> int | None:
     if not row:
         return None
     update(row["numero"], automatica=1, respondeu_em=None, status="automatica")
+    if not PROSPECT_PITCH_SILENT:
+        return None  # an automatic greeting is not an answer: no follow-up
     return schedule_pitch(conversation, row["enviado_em"], automatic=True, now=now)
 
 
