@@ -32,6 +32,8 @@ PROSPECT_TEST_TEXTS = [t.strip() for t in os.getenv(
 PROSPECT_WINDOWS = os.getenv("PROSPECT_WINDOWS", "0-4@18:30-21:00,5@09:30-12:30,6@10:00-13:00,7@10:00-13:00")
 # Follow-up only for whoever answered (Talles, 09/10): the silent ones get no pitch. Kept as a switch.
 PROSPECT_PITCH_SILENT = os.getenv("PROSPECT_PITCH_SILENT", "0") == "1"
+# Only an automatic greeting and then silence: one differential message the next business morning (Talles, 09/10).
+PROSPECT_PITCH_AUTOMATIC = os.getenv("PROSPECT_PITCH_AUTOMATIC", "1") == "1"
 # Ramp per sending day (1st day 40, then 60...; the last value repeats) and a random
 # gap between sends: a regular burst from an unofficial WhatsApp session gets banned.
 PROSPECT_RAMP = [int(v) for v in os.getenv("PROSPECT_RAMP", "40,60,80,100,120").split(",") if v.strip()]
@@ -293,14 +295,16 @@ def when_label(sent_ts: float, pitch_ts: float) -> str:
     return f"{WEEKDAY_ON[sent.weekday()]} às {hour}"
 
 
-def pitch_text(sent_ts: float, pitch_ts: float, automatic: bool = False, gancho: str = "") -> str:
+def pitch_text(sent_ts: float, pitch_ts: float, automatic: bool = False, gancho: str = "", seconds: int | None = None) -> str:
     """The single follow-up: the real day and hour of the test, no blame, a true detail of the business
     (`gancho`, from the enriched list), the agent as the demo, and an exit."""
     when = when_label(sent_ts, pitch_ts)
     when = when[0].upper() + when[1:]
     if automatic:
-        fact = (f"{when} mandei uma pergunta, recebi o menu automático e ninguém chegou a responder a dúvida. "
-                "Confesso que era um teste.")
+        speed = f" em {seconds} segundos" if seconds is not None and seconds < 120 else ""
+        fact = (f"{when} mandei uma pergunta e a boas-vindas automática de vocês chegou{speed}, ótimo. "
+                "Mas depois dela ninguém continuou a conversa, e é aí que o cliente desiste: a boas-vindas segura um minuto, "
+                "não a noite inteira. Confesso que era um teste.")
     else:
         fact = (f"{when} mandei uma mensagem perguntando se vocês estavam atendendo e ela ficou sem resposta, "
                 "o que é normal: a essa hora a equipe já foi pra casa. Confesso que era um teste.")
@@ -315,7 +319,8 @@ def pitch_text(sent_ts: float, pitch_ts: float, automatic: bool = False, gancho:
     )
 
 
-def schedule_pitch(conversation: int, sent_ts: float, automatic: bool = False, now: float | None = None) -> int | None:
+def schedule_pitch(conversation: int, sent_ts: float, automatic: bool = False, now: float | None = None,
+                   seconds: int | None = None) -> int | None:
     """The single follow-up of a test; the follow-up worker drops it if the business writes after `now`."""
     now = time.time() if now is None else now
     with connect() as c:
@@ -327,7 +332,7 @@ def schedule_pitch(conversation: int, sent_ts: float, automatic: bool = False, n
     with connect() as c:
         row = c.execute("SELECT dados FROM sdr_prospects WHERE conversation=?", (conversation,)).fetchone()
     gancho = str(json.loads(row[0]).get("gancho") or "") if row else ""
-    return sdr.add_followup(conversation, send_at, pitch_text(sent_ts, send_at, automatic, gancho), "retomada única do teste de atendimento",
+    return sdr.add_followup(conversation, send_at, pitch_text(sent_ts, send_at, automatic, gancho, seconds), "retomada única do teste de atendimento",
                             after_ts=now, stage="prospeccao")
 
 
@@ -338,10 +343,12 @@ def automatic_reply(conversation: int, now: float | None = None) -> int | None:
         row = c.execute("SELECT * FROM sdr_prospects WHERE conversation=? AND enviado_em IS NOT NULL", (conversation,)).fetchone()
     if not row:
         return None
+    seconds = int(row["respondeu_em"] - row["enviado_em"]) if row["respondeu_em"] else None
     update(row["numero"], automatica=1, respondeu_em=None, status="automatica")
-    if not PROSPECT_PITCH_SILENT:
-        return None  # an automatic greeting is not an answer: no follow-up
-    return schedule_pitch(conversation, row["enviado_em"], automatic=True, now=now)
+    if not PROSPECT_PITCH_AUTOMATIC:
+        return None
+    # Only a greeting and then silence (Talles, 09/10): one differential message, the next business morning.
+    return schedule_pitch(conversation, row["enviado_em"], automatic=True, now=now, seconds=seconds)
 
 
 BOT_LOOP_WINDOW = int(os.getenv("PROSPECT_BOT_LOOP_WINDOW_SECONDS", "600"))

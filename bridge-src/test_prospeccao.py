@@ -110,20 +110,27 @@ class ProspeccaoTests(unittest.TestCase):
         sent = ts(2026, 10, 13, 19, 40)
         self.assertEqual(prospeccao.when_label(sent, ts(2026, 10, 14, 10, 0)), "ontem às 19h40")
 
-    def test_automatic_greeting_is_marked_and_gets_no_follow_up(self):
+    def test_automatic_greeting_gets_one_differential_message(self):
         sent = ts(2026, 10, 13, 19, 5)
         prospeccao.enqueue([{"numero": "5548999990003", "nome": "Escritório C"}])
         prospeccao.update("5548999990003", status="enviado", enviado_em=sent, jid="554899990003@s.whatsapp.net", conversation=88)
-        prospeccao.replied("554899990003@s.whatsapp.net", ts=sent + 2)
+        prospeccao.replied("554899990003@s.whatsapp.net", ts=sent + 7)
         with patch.object(sdr, "_chatwoot", AsyncMock()):
             asyncio.run(sdr.record(88, "resposta_automatica", "sim"))
-        self.assertEqual(sdr.pending_followups(88), [])   # follow-up only for whoever answered (Talles, 09/10)
+            asyncio.run(sdr.record(88, "resposta_automatica", "sim"))   # recorded twice: still one message
+        pending = sdr.pending_followups(88)
+        self.assertEqual(len(pending), 1)
+        self.assertIn("boas-vindas automática de vocês chegou em 7 segundos", pending[0][3])
+        self.assertIn("não mando mais nada", pending[0][3])
+        self.assertEqual(datetime.fromtimestamp(pending[0][2], TZ).date().isoformat(), "2026-10-14")   # next business morning
         row = prospeccao.for_jid("554899990003@s.whatsapp.net")
         self.assertEqual(row["status"], "automatica")
         self.assertIsNone(row["respondeu_em"])
-        with patch.object(prospeccao, "PROSPECT_PITCH_SILENT", True), patch.object(sdr, "_chatwoot", AsyncMock()):
-            asyncio.run(sdr.record(88, "resposta_automatica", "sim"))
-        self.assertIn("menu automático", sdr.pending_followups(88)[0][3])
+        with patch.object(prospeccao, "PROSPECT_PITCH_AUTOMATIC", False), patch.object(sdr, "_chatwoot", AsyncMock()):
+            prospeccao.enqueue([{"numero": "5548999990004"}])
+            prospeccao.update("5548999990004", status="enviado", enviado_em=sent, jid="554899990004@s.whatsapp.net", conversation=89)
+            asyncio.run(sdr.record(89, "resposta_automatica", "sim"))
+        self.assertEqual(sdr.pending_followups(89), [])
 
     def test_weekend_and_holiday_only_for_businesses_open_then(self):
         prospeccao.enqueue([
